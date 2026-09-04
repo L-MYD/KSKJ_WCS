@@ -1,0 +1,6 @@
+@KSKJ_WCS_HostAddress = http://localhost:5080
+
+GET {{KSKJ_WCS_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

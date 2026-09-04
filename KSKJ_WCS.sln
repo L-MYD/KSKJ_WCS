@@ -5,6 +5,8 @@ VisualStudioVersion = 17.14.37614.0 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KSKJ_WCS", "KSKJ_WCS\KSKJ_WCS.csproj", "{755D1DB4-F862-49AF-A487-7DCC9FBC3EE2}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WCS_Model", "WCS_Model\WCS_Model.csproj", "{15006B36-DBD0-4F60-9F27-316477FAC1AF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +17,10 @@ Global
 		{755D1DB4-F862-49AF-A487-7DCC9FBC3EE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{755D1DB4-F862-49AF-A487-7DCC9FBC3EE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{755D1DB4-F862-49AF-A487-7DCC9FBC3EE2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{15006B36-DBD0-4F60-9F27-316477FAC1AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15006B36-DBD0-4F60-9F27-316477FAC1AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15006B36-DBD0-4F60-9F27-316477FAC1AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15006B36-DBD0-4F60-9F27-316477FAC1AF}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

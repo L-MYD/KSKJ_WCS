@@ -1,10 +1,11 @@
-﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using WCS_Models.LoginViewModel;
 using WCS_Helper.Mapper; // 根据您的项目结构调整这个命名空间
+using WCS_Helper; // nan_T 2026-09-09：引入 PasswordHasher 密码哈希工具
 
 using WCS_IServices;
 namespace WCS_Services // 根据您的项目结构调整这个命名空间
@@ -37,14 +38,35 @@ namespace WCS_Services // 根据您的项目结构调整这个命名空间
 
                 var user = await UserDbContext.FindByUserNameAsync(username);
 
+                // nan_T 2026-09-09：密码改为 PBKDF2 哈希校验，兼容旧明文（needsUpgrade=true 表示库中还是明文）
+                var verifyResult = user != null
+                    ? PasswordHasher.Verify(password, user.Password)
+                    : (isValid: false, needsUpgrade: false);
+
                 // 验证用户是否存在且密码正确
-                if (user != null && user.Password == password)
+                if (user != null && verifyResult.isValid)
                 {
-                    // 检查用户是否被禁用
-                    if (user.IsActive != "True")
+                    // nan_T 2026-09-09：修复启用状态判断不一致问题。
+                    // 原来判断 IsActive != "True"，但新增用户默认写入 "1"，导致新用户永远无法登录；
+                    // 现统一为 "1" 或 "true"（忽略大小写）视为启用，其余视为禁用。
+                    if (!IsUserActive(user.IsActive))
                     {
                         _logger?.LogWarning($"用户 {username} 已被禁用");
                         return null;
+                    }
+
+                    // nan_T 2026-09-09：旧明文密码登录成功后自动升级为哈希存储，失败不影响本次登录
+                    if (verifyResult.needsUpgrade)
+                    {
+                        try
+                        {
+                            await UserDbContext.UpdatePasswordAsync(username, PasswordHasher.Hash(password));
+                            _logger?.LogInformation($"用户 {username} 的明文密码已自动升级为哈希存储");
+                        }
+                        catch (Exception upgradeEx)
+                        {
+                            _logger?.LogWarning(upgradeEx, $"用户 {username} 密码哈希升级失败，下次登录将重试");
+                        }
                     }
 
                     _logger?.LogInformation($"用户 {username} 登录成功");
@@ -96,6 +118,9 @@ namespace WCS_Services // 根据您的项目结构调整这个命名空间
                 // 设置默认值
                 user.IsActive = string.IsNullOrEmpty(user.IsActive) ? "1" : user.IsActive;
                 user.UserRole = string.IsNullOrEmpty(user.UserRole) ? "2" : user.UserRole; // 默认角色：观察员
+
+                // nan_T 2026-09-09：入库前将明文密码哈希，数据库不再保存明文密码
+                user.Password = PasswordHasher.Hash(user.Password);
 
                 int result = await UserDbContext.InsertUserAsync(user);
 
@@ -292,13 +317,19 @@ namespace WCS_Services // 根据您的项目结构调整这个命名空间
                     return false;
                 }
 
+                // nan_T 2026-09-09：旧密码校验同样走哈希校验（兼容旧明文），不再明文比较
                 // 如果需要验证旧密码
-                if (!string.IsNullOrEmpty(oldPassword) && user.Password != oldPassword)
+                if (!string.IsNullOrEmpty(oldPassword))
                 {
-                    return false;
+                    var oldVerify = PasswordHasher.Verify(oldPassword, user.Password);
+                    if (!oldVerify.isValid)
+                    {
+                        return false;
+                    }
                 }
 
-                user.Password = newPassword;
+                // nan_T 2026-09-09：新密码先哈希再落库
+                user.Password = PasswordHasher.Hash(newPassword);
                 var result = await UserDbContext.UpdateUserAsync(user);
 
                 return result > 0;
@@ -308,6 +339,20 @@ namespace WCS_Services // 根据您的项目结构调整这个命名空间
                 _logger?.LogError(ex, $"更新用户ID {userId} 密码时发生异常");
                 throw; // 或者返回false
             }
+        }
+
+        /// <summary>
+        /// nan_T 2026-09-09：统一判断用户是否启用。
+        /// 数据库中历史数据存在 "1"、"True" 两种写法，统一视为启用；
+        /// "0"、"False"、空值等一律视为禁用，避免各处判断口径不一致。
+        /// </summary>
+        private static bool IsUserActive(string isActive)
+        {
+            if (string.IsNullOrWhiteSpace(isActive))
+                return false;
+
+            return isActive == "1"
+                || string.Equals(isActive, "true", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

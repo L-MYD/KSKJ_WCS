@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using WCS_Common.Enums;
 using WCS_Helper;
 using WCS_Models.LoginViewModel;
@@ -88,9 +88,13 @@ public class WcsDbContext : DbContext
                     break;
             }
 
-            // 打印 EF Core 执行的 SQL 日志并开启敏感数据日志，便于调试（正式上线建议关闭以提升性能与安全）
-            optionsBuilder.LogTo(Console.WriteLine)
-              .EnableSensitiveDataLogging();
+            // nan_T 2026-09-09：SQL 日志与敏感数据日志（会打印参数值，包含密码等）仅在开发环境开启，
+            // 生产环境一律关闭，避免敏感信息泄露到控制台/日志采集系统。
+            if (string.Equals(System.Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT"), "Development", System.StringComparison.OrdinalIgnoreCase))
+            {
+                optionsBuilder.LogTo(Console.WriteLine)
+                  .EnableSensitiveDataLogging();
+            }
         }
     }
 

@@ -1,4 +1,4 @@
-﻿using WCS_Models.PLCModel;
+using WCS_Models.PLCModel;
 using WCS_Models.SqlModel;
 using WCS_Models.TESModel;
 using WCS_Models.WCSModel.LogModel;
@@ -48,17 +48,19 @@ namespace WCS_Services
         private bool _RecvConnState;
         private bool _SendConnState;
 
-        public static Dictionary<string, string> PLCDB5Dic = new Dictionary<string, string>();
+        // nan_T 2026-09-09：PLCDB5Dic 会被 Recv/Send 等多个线程并发读写，
+        // 原普通 Dictionary 非线程安全，并发写入可能导致死循环/数据丢失，改为 ConcurrentDictionary。
+        public static ConcurrentDictionary<string, string> PLCDB5Dic = new ConcurrentDictionary<string, string>();
         static readonly string plcstationcode = "2544";
         static readonly string plcstationOutCode = "2557";
         static readonly string tesstationcodeIn = "F1-PalletLine-IN";
         static readonly string tesstationcodeOut = "F2-PalletLine-OUT";
         static readonly string wmsapiip = "http://10.10.200.90:8003/";
-        ToTesApiService tesservice = new ToTesApiService();
 
         public static bool PLCConnState = false;
         private readonly Dictionary<string, DateTime> _processedMessages = new Dictionary<string, DateTime>();
         private readonly TimeSpan _messageExpiry = TimeSpan.FromMinutes(5);
+        // nan_T 2026-09-09：合并重复字段，原 tesservice 与 toTesApiService 是两个完全相同的实例，统一为一个
         ToTesApiService toTesApiService = new ToTesApiService();
 
         private static readonly ConcurrentDictionary<string, DateTime> _lastEmptyPalletApplyTime = new ConcurrentDictionary<string, DateTime>();
@@ -98,10 +100,9 @@ namespace WCS_Services
             string DB5Name = $"{_ConveIP}:DB5";
             string DB6Name = $"{_ConveIP}:DB6";
 
-            if (!PLCDB5Dic.ContainsKey(DB5Name))
-                PLCDB5Dic.Add(DB5Name, "");
-            if (!PLCDB5Dic.ContainsKey(DB6Name))
-                PLCDB5Dic.Add(DB6Name, "");
+            // nan_T 2026-09-09：ConcurrentDictionary 用 TryAdd 替代 ContainsKey+Add（原写法非原子，且 Add 重复键会抛异常）
+            PLCDB5Dic.TryAdd(DB5Name, "");
+            PLCDB5Dic.TryAdd(DB6Name, "");
 
             // 设置超时时间（10秒）
             _s7Client.ConnTimeout = 10000;
@@ -110,8 +111,15 @@ namespace WCS_Services
 
             SaveLogText("PLCServer", "PLC服务启动成功，超时设置为10秒");
 
-            new Task(Recv).Start();
-            new Task(Send).Start();
+            // nan_T 2026-09-09：Recv/Send 由 async void 改为 async Task。
+            // async void 的未捕获异常会直接终止整个进程；改为 Task 后用 Task.Run 启动，
+            // 并挂接 OnlyOnFaulted 延续记录致命错误，避免后台循环异常无声拖垮进程。
+            Task.Run(Recv).ContinueWith(
+                t => SaveErrToText("PLCServer", $"Recv 循环致命异常: {t.Exception}"),
+                TaskContinuationOptions.OnlyOnFaulted);
+            Task.Run(Send).ContinueWith(
+                t => SaveErrToText("PLCServer", $"Send 循环致命异常: {t.Exception}"),
+                TaskContinuationOptions.OnlyOnFaulted);
         }
 
         private bool EnsureConnection()
@@ -153,7 +161,8 @@ namespace WCS_Services
             }
         }
 
-        async void Recv()
+        // nan_T 2026-09-09：async void → async Task，异常可被 Task 观测而不是直接崩溃进程
+        async Task Recv()
         {
             while (true)
             {
@@ -273,7 +282,8 @@ namespace WCS_Services
                                     ReasonCode = DeleteChar(ReasonCode);
                                     TessetStationStatus stationStatus = new TessetStationStatus();
                                     stationStatus.stationCode = FromLocation;
-                                    tesservice.setStationStatus(stationStatus);
+                                    // nan_T 2026-09-09：使用合并后的统一服务实例
+                                    toTesApiService.setStationStatus(stationStatus);
                                     SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5", $"RF命令：站点{FromLocation}，流向切换成功");
                                 }
                                 else if (MessageType == "SS")
@@ -431,7 +441,8 @@ namespace WCS_Services
             }
         }
 
-        async void Send()
+        // nan_T 2026-09-09：async void → async Task，异常可被 Task 观测而不是直接崩溃进程
+        async Task Send()
         {
             while (true)
             {

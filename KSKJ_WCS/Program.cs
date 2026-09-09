@@ -140,12 +140,29 @@ builder.Services.AddControllers(setupAction =>
 // ���ÿ�����
 builder.Services.AddCors(options =>
 {
+    // nan_T 2026-09-09：修复 CORS 配置矛盾。
+    // 原写法同时调用 WithOrigins(AllowedHosts) 和 AllowAnyOrigin()，语义冲突；
+    // 且 AllowedHosts 是主机过滤配置项，不是 CORS 来源列表，读出来通常是 "*"。
+    // 现改为：从独立配置 "Cors:AllowedOrigins" 读取白名单（逗号分隔），
+    // 未配置时回退为允许任意来源（仅建议开发/内网环境），两个 API 不再同时调用。
     options.AddPolicy("cors", policy =>
-        policy.WithOrigins(builder.Configuration["AllowedHosts"] ?? "*")
-              .AllowAnyHeader()
+    {
+        policy.AllowAnyHeader()
               .AllowAnyMethod()
-              .AllowAnyOrigin()
-              .WithExposedHeaders("content-disposition", "token-expired", "x-pagination"));
+              .WithExposedHeaders("content-disposition", "token-expired", "x-pagination");
+
+        var corsOrigins = builder.Configuration["Cors:AllowedOrigins"]?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (corsOrigins != null && corsOrigins.Length > 0)
+        {
+            policy.WithOrigins(corsOrigins);
+        }
+        else
+        {
+            policy.AllowAnyOrigin();
+        }
+    });
 });
 
 // �����֤����

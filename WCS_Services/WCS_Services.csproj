@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 应用实现层依赖接口层，并依赖各基础层 -->
+    <ProjectReference Include="..\WCS_IServices\WCS_IServices.csproj" />
+    <ProjectReference Include="..\WCS_Common\WCS_Common.csproj" />
+    <ProjectReference Include="..\WCS_Helper\WCS_Helper.csproj" />
+    <ProjectReference Include="..\WCS_Model\WCS_Model.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="PLCFunc">
+      <HintPath>PLCFunc.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>

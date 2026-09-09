@@ -7,7 +7,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <!-- 接口方法签名中使用的实体/模型位于 Model 层 -->
+    <ProjectReference Include="..\WCS_Common\WCS_Common.csproj" />
+    <ProjectReference Include="..\WCS_Model\WCS_Model.csproj" />
   </ItemGroup>
 
 </Project>

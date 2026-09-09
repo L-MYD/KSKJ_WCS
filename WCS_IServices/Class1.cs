@@ -1,4 +1,4 @@
-﻿namespace WCS_Model
+﻿namespace WCS_IServices
 {
     public class Class1
     {

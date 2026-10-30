@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using WCS_Models.WMSModel;
 
 namespace WCS_Services
@@ -12,6 +12,9 @@ namespace WCS_Services
         // 任务ID（WMS任务ID） → 所属批次ID 的映射
         private static readonly ConcurrentDictionary<string, string> _taskToBatch = new ConcurrentDictionary<string, string>();
 
+        // 批次ID → 该批次全部任务ID列表（用于 DequeueBatch 时完整清理映射，防止残留导致回调误缓存后丢失）
+        private static readonly ConcurrentDictionary<string, List<string>> _batchToTasks = new ConcurrentDictionary<string, List<string>>();
+
         // 批次ID → 该批次待补发的回调队列
         private static readonly ConcurrentDictionary<string, ConcurrentQueue<CallbackItem>> _batchCallbacks = new ConcurrentDictionary<string, ConcurrentQueue<CallbackItem>>();
 
@@ -22,10 +25,12 @@ namespace WCS_Services
         /// <param name="taskIds">该批次所有WMS任务ID列表</param>
         public static void RegisterBatch(string batchId, IEnumerable<string> taskIds)
         {
-            foreach (var taskId in taskIds)
+            var taskList = taskIds.ToList();
+            foreach (var taskId in taskList)
             {
                 _taskToBatch[taskId] = batchId;
             }
+            _batchToTasks[batchId] = taskList;
             _batchCallbacks[batchId] = new ConcurrentQueue<CallbackItem>();
         }
 
@@ -69,10 +74,15 @@ namespace WCS_Services
                 {
                     list.Add(item);
                 }
-                // 移除任务映射，释放内存
-                foreach (var item in list)
+                // nan_T 2026-09-14：无论回调队列是否为空，都完整清理该批次所有任务映射，
+                // 防止"WMS下发响应已返回但TES状态回传尚未到达"时映射残留，
+                // 导致后续回传被误判为待缓存（IsPending=true）而永不补发
+                if (_batchToTasks.TryRemove(batchId, out var taskIds))
                 {
-                    _taskToBatch.TryRemove(item.TaskId, out _);
+                    foreach (var taskId in taskIds)
+                    {
+                        _taskToBatch.TryRemove(taskId, out _);
+                    }
                 }
                 return list;
             }

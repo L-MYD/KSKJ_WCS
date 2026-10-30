@@ -27,6 +27,9 @@ public class WcsDbContext : DbContext
     public DbSet<LogModel> Logs { get; set; }
     public DbSet<EmptyPodIDApply> EmptyPodIDApply { get; set; }
 
+    // nan_T 2026-09-09：失败消息重发表（PLC 指令 / API 请求 自动重发）
+    public DbSet<RetryMessage> RetryMessages { get; set; }
+
     /// <summary>当前使用的数据库类型（PostgreSQL / SqlServer / MySql），默认 SqlServer</summary>
     private DBType _dbType = DBType.SqlServer;
 

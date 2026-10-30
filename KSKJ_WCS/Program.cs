@@ -9,28 +9,30 @@ using System.Net;
 using System.Reflection;
 using WCS_Services;
 using WCS_IServices;
+using WCS_Api.Filters; // nan_T 2026-09-09：全局异常过滤器
+using WCS_Api.Extensions; // nan_T 2026-09-09：服务程序集自动注册扩展
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ���IIS��������
+// 配置IIS服务器选项
 builder.Services.Configure<IISOptions>(options =>
 {
     options.AutomaticAuthentication = false;
     options.ForwardClientCertificate = false;
 });
 
-// �ϴ��ļ�����
+// 上传文件大小配置
 builder.WebHost.ConfigureKestrel(options =>
 {
-    // HTTP �����е���������С��Ĭ��Ϊ 8kb
+    // HTTP 请求行最大长度，默认为 8kb
     options.Limits.MaxRequestLineSize = int.MaxValue;
-    // ���󻺳���������С��Ĭ��Ϊ 1M
+    // 请求缓冲区最大长度，默认为 1M
     options.Limits.MaxRequestBufferSize = int.MaxValue;
-    // �κ��������ĵ���������С�����ֽ�Ϊ��λ��,Ĭ�� 30,000,000 �ֽڣ���ԼΪ 28.6MB
-    options.Limits.MaxRequestBodySize = int.MaxValue; // �������󳤶�
+    // 任何请求体的最大允许大小（以字节为单位），默认 30,000,000 字节，约为 28.6MB
+    options.Limits.MaxRequestBodySize = int.MaxValue; // 不限制请求长度
 });
 
-// ���ý����ļ����ȵ����ֵ��
+// 设置表单长度限制的阈值
 builder.Services.Configure<FormOptions>(opt =>
 {
     opt.ValueLengthLimit = int.MaxValue;
@@ -43,17 +45,17 @@ builder.Services.Configure<IISServerOptions>(opt =>
     opt.MaxRequestBodySize = int.MaxValue;
 });
 
-// �����־����
+// 清理日志提供者
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
-// ����
+// 配置
 builder.Configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                      .AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.json", optional: true)
                      .AddEnvironmentVariables();
 
-// ע��Swagger����
+// 注册Swagger配置
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v7", new OpenApiInfo
@@ -63,15 +65,15 @@ builder.Services.AddSwaggerGen(c =>
         Description = "WCS Warehouse Control System API",
         Contact = new OpenApiContact
         {
-            Name = "����֧��",
+            Name = "技术支持",
             Email = "support@WCS.com"
         }
     });
 
-    // ���Bearer token֧�֣������Ҫ��
+    // 添加Bearer token支持，按需启用
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "������Bearer token",
+        Description = "请输入Bearer token",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -93,7 +95,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    // ��ȡXMLע���ļ�����ȷ·��
+    // 获取XML注释文件，确保正确路径
     try
     {
         var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
@@ -116,19 +118,22 @@ builder.Services.AddSwaggerGen(c =>
         Console.WriteLine($"Error loading XML comments: {ex.Message}");
     }
 
-    // ����ö���ַ���ֵ
+    // 配置枚举字符串值
     c.UseAllOfToExtendReferenceSchemas();
     c.UseOneOfForPolymorphism();
 
-    // ���ò���ID
+    // 配置操作ID
     c.CustomOperationIds(apiDesc => apiDesc.TryGetMethodInfo(out MethodInfo methodInfo) ? methodInfo.Name : null);
 });
 
-// ��������Ӧ����
+// 配置控制器和响应格式
 builder.Services.AddControllers(setupAction =>
 {
-    // Ĭ����ӦJSON��ʽ
+    // 默认只响应JSON格式
     setupAction.ReturnHttpNotAcceptable = true;
+    // nan_T 2026-09-09：注册全局异常过滤器（参考 DTcms.Core），
+    // Service 层抛出的 ResponseException 及未预期异常统一由它转换为标准 ResponseMessage
+    setupAction.Filters.Add(typeof(GlobalExceptionFilter));
 })
     .AddNewtonsoftJson(opt =>
     {
@@ -137,7 +142,7 @@ builder.Services.AddControllers(setupAction =>
     })
     .AddXmlDataContractSerializerFormatters();
 
-// ���ÿ�����
+// 配置跨域服务
 builder.Services.AddCors(options =>
 {
     // nan_T 2026-09-09：修复 CORS 配置矛盾。
@@ -165,7 +170,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-// �����֤����
+// 配置认证服务
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -178,58 +183,58 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
     });
 
-// �����Ȩ����
+// 配置授权服务
 builder.Services.AddAuthorization();
 
-// ע��LoginService
-builder.Services.AddTransient<WCS_Helper.Database.IDbContextFactory, WCS_Helper.Database.DbContextFactory>(); // 注册数据库上下文工厂（按 appsettings 的 DBType 在 PostgreSQL/SqlServer/MySql 间切换）
-        builder.Services.AddScoped<ILoginService, LoginService>();
+// nan_T 2026-09-09：注册数据库上下文工厂（按 appsettings 的 DBType 在 PostgreSQL/SqlServer/MySql 间切换）
+builder.Services.AddTransient<WCS_Helper.Database.IDbContextFactory, WCS_Helper.Database.DbContextFactory>();
 
-// �� Program.cs ������
+// nan_T 2026-09-09：按约定自动注册 WCS_Services 程序集中所有业务服务（参考 DTcms.Core 的程序集注册方式），
+// 替代原来逐个 AddScoped<ILoginService, LoginService>() 的手写注册；
+// 构造函数含 string 等原始参数的 PLCService 会被自动跳过，仍由下方手动注册启动。
+builder.Services.AddWcsServices();
+
+// nan_T 2026-09-09：注册失败消息自动重发后台服务（定时扫描 retry_messages 表，重发失败的 API 请求 / PLC 指令）
+builder.Services.AddHostedService<WCS_Api.Services.RetryBackgroundService>();
+
+// 在 Program.cs 中注册
 builder.Services.AddHttpContextAccessor();
 
-// ���ʹ�÷���һ������ע�룩
-builder.Services.AddScoped<ILogService, LogService>();
-
-builder.Services.AddScoped<IDataMonitoringService, DataMonitoringService>(); // ���ʹ��ʵ���汾
-// ע��PLC���� - ʹ������ע�������ֱ��ʵ����
-//builder.Services.AddSingleton<PLCService>(provider =>
-//{
-//    var config = provider.GetRequiredService<IConfiguration>();
-//    var logger = provider.GetService<ILogger<PLCService>>();
-
-//    // �������л�ȡIP��ַ�����û��������ʹ��Ĭ��ֵ
-//    var ipAddress = config["PLC:IPAddress"] ?? "192.168.29.50";
-
-//    logger?.LogInformation($"��ʼ��PLC����IP��ַ: {ipAddress}");
-
-//    return new PLCService(ipAddress);
-//});
-
-new PLCService("172.18.18.20");
+// nan_T 2026-09-23：PLC 服务从配置读取 IP 并注册为 Singleton（替代原直接 new 的硬编码写法）。
+// 构造函数内部会启动 Recv/Send 后台循环；启动时由 app.Services.GetRequiredService<PLCService>() 强制触发构造。
+builder.Services.AddSingleton<PLCService>(provider =>
+{
+    var config = provider.GetRequiredService<IConfiguration>();
+    var ipAddress = config["PLC:IPAddress"] ?? "172.18.18.20";
+    Console.WriteLine($"初始化PLC服务，IP地址: {ipAddress}");
+    return new PLCService(ipAddress);
+});
 
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
 
-// �����־
-Console.WriteLine("=== WCS API ��� ===");
-Console.WriteLine($"����: {app.Environment.EnvironmentName}");
-Console.WriteLine($"��Ŀ¼: {app.Environment.ContentRootPath}");
-Console.WriteLine($"Web��Ŀ¼: {app.Environment.WebRootPath}");
+// nan_T 2026-09-23：强制解析 PLCService，触发其构造函数中的 Task.Run(Recv/Send) 后台循环
+app.Services.GetRequiredService<PLCService>();
 
-// ȷ��SwaggerĿ¼����
+// 启动日志
+Console.WriteLine("=== WCS API 启动 ===");
+Console.WriteLine($"环境: {app.Environment.EnvironmentName}");
+Console.WriteLine($"项目目录: {app.Environment.ContentRootPath}");
+Console.WriteLine($"Web目录: {app.Environment.WebRootPath}");
+
+// 确保Swagger目录存在
 var swaggerDir = Path.Combine(app.Environment.ContentRootPath, "swagger");
 if (!Directory.Exists(swaggerDir))
 {
     Directory.CreateDirectory(swaggerDir);
-    Console.WriteLine("�Ѵ���SwaggerĿ¼");
+    Console.WriteLine("已创建Swagger目录");
 }
 
-// ����HTTP����ܵ�
-// �м��˳�����Ҫ����Ҫ������ȷ˳������
+// 配置HTTP请求管道
+// 中间件顺序很重要，必须按以下正确顺序添加
 
-// �쳣���������㣩
+// 异常处理（开发环境）
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
@@ -240,7 +245,7 @@ else
     app.UseHsts();
 }
 
-// ���������־�м��
+// 请求监控日志中间件
 app.Use(async (context, next) =>
 {
     var startTime = DateTime.UtcNow;
@@ -253,26 +258,26 @@ app.Use(async (context, next) =>
     Console.WriteLine($"[{endTime:HH:mm:ss}] {context.Request.Method} {context.Request.Path} - {context.Response.StatusCode} ({duration}ms)");
 });
 
-// ��̬�ļ�����
+// 静态文件服务
 app.UseStaticFiles();
 
-// ·��
+// 路由
 app.UseRouting();
 
 // CORS
 app.UseCors("cors");
 
-// ��֤����Ȩ
+// 认证和授权
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Swagger����
+// Swagger配置
 app.UseSwagger(c =>
 {
     c.RouteTemplate = "swagger/{documentName}/swagger.json";
     c.PreSerializeFilters.Add((swaggerDoc, httpReq) =>
     {
-        // ��̬���÷�����URL
+        // 动态设置服务器URL
         if (!app.Environment.IsDevelopment())
         {
             swaggerDoc.Servers = new List<OpenApiServer>
@@ -290,9 +295,9 @@ app.UseSwagger(c =>
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v7/swagger.json", "WCS API v7");
-    c.RoutePrefix = "swagger"; // ����·��Ϊ http://yourdomain/swagger
+    c.RoutePrefix = "swagger"; // 访问路径为 http://yourdomain/swagger
 
-    // ����ѡ��
+    // 启用选项
     c.DisplayRequestDuration();
     c.EnableDeepLinking();
     c.DisplayOperationId();
@@ -301,18 +306,18 @@ app.UseSwaggerUI(c =>
     c.ShowExtensions();
     c.EnableFilter();
 
-    // ���������ض�����
+    // 生产环境额外调整
     if (!app.Environment.IsDevelopment())
     {
-        c.DocExpansion(DocExpansion.None); // Ĭ���۵�����
-        c.EnableValidator(); // ������֤��
+        c.DocExpansion(DocExpansion.None); // 默认折叠文档
+        c.EnableValidator(); // 启用验证器
     }
 });
 
-// �ն˵�����
+// 终端路由
 app.MapControllers();
 
-// �������˵�
+// 根路径跳转
 app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.MapGet("/health", () =>
@@ -341,15 +346,15 @@ app.MapGet("/api/version", () =>
     });
 });
 
-// ���Ӧ��
+// 启动应用
 try
 {
-    Console.WriteLine("���HTTP����...");
+    Console.WriteLine("启动HTTP服务...");
     app.Run();
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"���ʧ��: {ex.Message}");
-    Console.WriteLine($"��ջ����: {ex.StackTrace}");
+    Console.WriteLine($"启动失败: {ex.Message}");
+    Console.WriteLine($"堆栈信息: {ex.StackTrace}");
     throw;
 }

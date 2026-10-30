@@ -1,4 +1,4 @@
-﻿using WCS_Models.TESModel;
+using WCS_Models.TESModel;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -31,7 +31,9 @@ namespace WCS_Services
 {
     public class ToTesApiService : IToTesApiService
     {
-        string wmsapiip = ApiServerCollection.DataList.FirstOrDefault(x=>x.Name=="WMS").IP;
+        // nan_T 2026-09-14：WMS 回调基址。数据库可能存尾部带斜杠（如 http://…:5000/），
+        // 统一 TrimEnd('/')，避免拼接 "/matrix/sendMsg/…" 时产生双斜杠导致 404
+        string wmsapiip = (ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "WMS")?.IP ?? "").TrimEnd('/');
         static string tesapiip = ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "TES").IP;
         /// <summary>
         /// 从 ErrorReason 中提取托盘号（使用正则表达式，支持多种括号格式）
@@ -95,7 +97,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "CreateMoveTask_log.txt");
                     string logMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -103,9 +107,12 @@ namespace WCS_Services
                     Console.WriteLine($"写入日志失败: {logEx.Message}");
                 }
             }
+            // nan_T 2026-09-09：请求地址与报文在 try 外声明，catch 中失败时可直接落重发表
+            string serviceAddress = null;
+            string strJson = null;
             try
             {
-                string serviceAddress = tesapiip + "tes/apiv2/newMovePodTask";
+                serviceAddress = tesapiip + "tes/apiv2/newMovePodTask";
 
                 // 记录HTTP请求
                 TesNewMovePodTaskModel taskmodel = new TesNewMovePodTaskModel();
@@ -145,7 +152,7 @@ namespace WCS_Services
                 request.Method = "POST";
                 request.ContentType = "application/json";
 
-                string strJson = JsonConvert.SerializeObject(taskmodel);
+                strJson = JsonConvert.SerializeObject(taskmodel);
                 using (StreamWriter dataStream = new StreamWriter(request.GetRequestStream()))
                 {
                     dataStream.Write(strJson);
@@ -227,6 +234,10 @@ namespace WCS_Services
                 };
                 LogsDbContext.Insert(errorResponseLog);
 
+                // nan_T 2026-09-09：HTTP 错误响应，请求落 retry_messages 表由后台自动重发（不再只写 txt）
+                RetryRecorder.EnqueueApi(serviceAddress, strJson, model?.podId, "CreateMoveTask",
+                    $"HTTP {(int)httpResponse.StatusCode} {httpResponse.StatusCode}: {errorContent}");
+
                 return new TaskReqsonModel
                 {
                     returnCode = (int)httpResponse.StatusCode,
@@ -252,6 +263,10 @@ namespace WCS_Services
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
+
+                // nan_T 2026-09-09：网络/系统异常（连接超时、对端不可达等），请求落 retry_messages 表由后台自动重发
+                RetryRecorder.EnqueueApi(serviceAddress, strJson, model?.podId, "CreateMoveTask",
+                    $"系统异常: {ex.Message}");
 
                 return new TaskReqsonModel
                 {
@@ -1105,7 +1120,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "receiveTaskPallent_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -1269,7 +1286,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "UpdateStationOperation_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -1539,7 +1558,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "GetWmsreceiveTask_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -1698,7 +1719,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "GetPalnoApply_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -1857,7 +1880,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "PostPalnoApply_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -2013,7 +2038,9 @@ namespace WCS_Services
                     string logFilePath = Path.Combine(logPath, $"{operation}_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
 
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -2215,7 +2242,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "SendAgvTask_log.txt");
                     string logMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -2536,7 +2565,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "PostPalnoRelease_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -2693,7 +2724,9 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "PostPalnoRelease_log.txt");
                     string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
+                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
@@ -529,7 +529,7 @@ using System.Linq;
 //    }
 //}
 
-using Npgsql;
+using System.Data.SqlClient;
 using System;
 using System.Collections.Generic;
 using System.Data;
@@ -543,7 +543,7 @@ namespace WCS_Helper
     /// </summary>
     public static class WcsSQLServer
     {
-        private static readonly string SqlConn = ConfigurationHelper.GetConnectionString(); // 获取 PostgreSQL 连接字符串
+        private static readonly string SqlConn = ConfigurationHelper.GetConnectionString(); // nan_T 2026-09-14：获取 SQL Server 连接字符串（DBType=SqlServer 时取 SqlServerConnection）
 
         /// <summary>
         /// 执行查询，返回是否有结果
@@ -552,11 +552,11 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new NpgsqlConnection(SqlConn))
+                using (var connection = new SqlConnection(SqlConn))
                 {
-                    var adapter = new NpgsqlDataAdapter
+                    var adapter = new SqlDataAdapter
                     {
-                        SelectCommand = new NpgsqlCommand(queryString, connection)
+                        SelectCommand = new SqlCommand(queryString, connection)
                     };
 
                     var dataTable = new DataTable();
@@ -579,9 +579,9 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new NpgsqlConnection(SqlConn))
+                using (var connection = new SqlConnection(SqlConn))
                 {
-                    var comm = new NpgsqlCommand(sprocName, connection)
+                    var comm = new SqlCommand(sprocName, connection)
                     {
                         CommandType = CommandType.StoredProcedure
                     };
@@ -603,11 +603,11 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new NpgsqlConnection(SqlConn))
+                using (var connection = new SqlConnection(SqlConn))
                 {
-                    var adapter = new NpgsqlDataAdapter
+                    var adapter = new SqlDataAdapter
                     {
-                        SelectCommand = new NpgsqlCommand(queryString, connection)
+                        SelectCommand = new SqlCommand(queryString, connection)
                     };
                     var dataTable = new DataTable();
                     adapter.Fill(dataTable);
@@ -629,11 +629,11 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new NpgsqlConnection(SqlConn))
+                using (var connection = new SqlConnection(SqlConn))
                 {
-                    var adapter = new NpgsqlDataAdapter
+                    var adapter = new SqlDataAdapter
                     {
-                        SelectCommand = new NpgsqlCommand(queryString, connection)
+                        SelectCommand = new SqlCommand(queryString, connection)
                     };
                     var dataTable = new DataTable();
                     adapter.Fill(dataTable);
@@ -697,11 +697,11 @@ namespace WCS_Helper
 
             try
             {
-                using (var connection = new NpgsqlConnection(SqlConn))
+                using (var connection = new SqlConnection(SqlConn))
                 {
-                    var adapter = new NpgsqlDataAdapter
+                    var adapter = new SqlDataAdapter
                     {
-                        SelectCommand = new NpgsqlCommand(queryString, connection)
+                        SelectCommand = new SqlCommand(queryString, connection)
                     };
                     var dataTable = new DataTable();
                     adapter.Fill(dataTable);
@@ -723,11 +723,11 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new NpgsqlConnection(SqlConn))
+                using (var connection = new SqlConnection(SqlConn))
                 {
-                    var adapter = new NpgsqlDataAdapter
+                    var adapter = new SqlDataAdapter
                     {
-                        SelectCommand = new NpgsqlCommand(queryString, connection)
+                        SelectCommand = new SqlCommand(queryString, connection)
                     };
                     var dataTable = new DataTable();
                     adapter.Fill(dataTable);
@@ -892,9 +892,9 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new NpgsqlConnection(SqlConn))
+                using (var connection = new SqlConnection(SqlConn))
                 {
-                    var command = new NpgsqlCommand(queryString, connection);
+                    var command = new SqlCommand(queryString, connection);
                     command.Connection.Open();
                     return command.ExecuteNonQuery();
                 }
@@ -907,42 +907,19 @@ namespace WCS_Helper
         }
 
         /// <summary>
-        /// 将异常信息保存至文本文件（路径改为 C:\WCSErrLog）
+        /// nan_T 2026-09-09：原“将异常信息保存至 C:\WCSErrLog 文本文件”，现改为写数据库 logs 表（系统/ERROR）
+        /// 并输出控制台，不再生成任何 txt 文件；方法签名保留，既有调用点无需修改。
         /// </summary>
         public static void SaveErrToText(string detail, string reason)
         {
-            const string filePath = @"C:\WCSErrLog";
-            var fileName = DateTime.UtcNow.ToString("yyyyMMdd");
-
-            StreamWriter sw = null;
-            FileStream fs = null;
-
             try
             {
-                if (!Directory.Exists(filePath))
-                {
-                    Directory.CreateDirectory(filePath);
-                }
-
-                fileName = "WcsErrLog_" + fileName + ".txt";
-                var fullPath = Path.Combine(filePath, fileName);
-
-                if (!File.Exists(fullPath))
-                {
-                    fs = File.Create(fullPath);
-                    fs.Close();
-                    fs.Dispose();
-                }
-
-                sw = File.AppendText(fullPath);
-                var content = $"DealMessage:{detail} \n Reason:{reason} \n Datetime:{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} \n";
-                sw.Write(content);
-                sw.Close();
+                LogHelper.Error("SQLServer", detail, reason, details: $"DealMessage:{detail} | Reason:{reason} | Datetime:{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
             }
-            catch
+            catch (Exception ex)
             {
-                sw?.Close();
-                fs?.Close();
+                // 兜底：只打控制台，不写文件
+                Console.WriteLine($"[WcsSQLServer.SaveErrToText] {detail} | {reason} | 日志落库失败: {ex.Message}");
             }
         }
 

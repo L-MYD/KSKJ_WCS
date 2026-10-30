@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,7 +16,9 @@ namespace WCS_Services
 {
     public class CTUAPIService
     {
-         string ctuapiip = "http://10.10.200.90:8003/";
+        // nan_T 2026-09-23：移除未使用字段 ctuapiip（原字段仅在注释代码中被引用，编译器警告 CS0414）。
+        // 如后续启用 CTU API 调用，建议从 appsettings.json 的 CTU:ApiUrl 配置读取，避免硬编码。
+
         /// <summary>
         /// 查询TES任务详情
         /// </summary>

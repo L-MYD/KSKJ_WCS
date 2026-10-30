@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Threading;
 using System.Collections.Concurrent;
@@ -24,7 +24,9 @@ namespace WCS_Helper
     /// </summary>
     public class LogConfiguration
     {
-        public bool EnableFileLogging { get; set; } = true;
+        // nan_T 2026-09-09：默认关闭 txt 文件日志，所有日志统一写数据库（logs 表）；
+        // 控制台日志保留用于调试。如确需文件日志，可在启动时通过 LogHelper.Configure 手动打开。
+        public bool EnableFileLogging { get; set; } = false;
         public bool EnableConsoleLogging { get; set; } = true;
         public bool EnableDatabaseLogging { get; set; } = true;
         public string LogDirectory { get; set; } = "Logs";
@@ -137,6 +139,34 @@ namespace WCS_Helper
             WriteLog(module, operation, message, LogLevel.Fatal, fullDetails);
         }
 
+        // nan_T 2026-09-09：===== PLC / API 分类日志（统一写 logs 表，来源字段做区分）=====
+
+        /// <summary>
+        /// nan_T 2026-09-09：记录 PLC 通讯日志（来源标记为 PLC，日志类型为“PLC日志”）。
+        /// 替代原 PLCService 中写 C:\PLCLog / C:\WCSErrLog 的 txt 日志。
+        /// </summary>
+        /// <param name="operation">操作/环节（如 Recv—DB5、Send、DB4写失败）</param>
+        /// <param name="message">日志内容</param>
+        /// <param name="isError">是否为错误日志</param>
+        /// <param name="details">附加详情（错误原因等）</param>
+        public static void Plc(string operation, string message, bool isError = false, string details = null)
+        {
+            WriteLog("PLC", operation, message, isError ? LogLevel.Error : LogLevel.Info, details, "PLC");
+        }
+
+        /// <summary>
+        /// nan_T 2026-09-09：记录 API 接口日志（来源标记为 API，日志类型为“接口日志”）。
+        /// 替代原各 ApiService 中写 *_log.txt 的文件日志。
+        /// </summary>
+        /// <param name="operation">接口/操作名（如 CreateMoveTask、回调通知）</param>
+        /// <param name="message">日志内容</param>
+        /// <param name="isError">是否为错误日志</param>
+        /// <param name="details">附加详情（请求/响应 JSON、错误原因等）</param>
+        public static void Api(string operation, string message, bool isError = false, string details = null)
+        {
+            WriteLog("API", operation, message, isError ? LogLevel.Error : LogLevel.Info, details, "API");
+        }
+
         /// <summary>
         /// 向后兼容的方法
         /// </summary>
@@ -159,7 +189,8 @@ namespace WCS_Helper
         /// <summary>
         /// 核心日志写入方法
         /// </summary>
-        private static void WriteLog(string module, string operation, string message, LogLevel level, string details = null)
+        /// <param name="source">nan_T 2026-09-09：日志来源（System/PLC/API），写库时映射为 usertype/logtype 做区分</param>
+        private static void WriteLog(string module, string operation, string message, LogLevel level, string details = null, string source = "System")
         {
             // 检查日志级别是否满足最低要求
             if (level < _config.MinimumLogLevel)
@@ -175,6 +206,7 @@ namespace WCS_Helper
                 Message = message,
                 Level = level,
                 Details = details,
+                Source = source,
                 ThreadId = Thread.CurrentThread.ManagedThreadId
             };
 
@@ -217,7 +249,15 @@ namespace WCS_Helper
                     }
                 }
 
+                // nan_T 2026-09-09：修复原 ManualResetEventSlim 竞态：
+                // 原逻辑在“队列取空”与“Reset()”之间若有新日志入队并 Set()，Reset 后事件会被清成未信号，
+                // 导致这条日志滞留队列直到下一条日志到来才被处理（日志延迟/丢失）。
+                // 修复：Reset 后再次检查队列，若期间又有日志入队则立即重新 Set()，保证不丢信号。
                 _logEvent.Reset();
+                if (!_logQueue.IsEmpty)
+                {
+                    _logEvent.Set();
+                }
 
                 // 短暂休眠避免CPU占用过高
                 if (_logQueue.IsEmpty)
@@ -393,16 +433,43 @@ namespace WCS_Helper
         }
 
         /// <summary>
-        /// 写入数据库
+        /// nan_T 2026-09-23：日志写库失败时的最大重试次数。
+        /// 超过此次数后仅输出控制台，避免数据库持续不可用时日志无限堆积导致内存溢出。
+        /// </summary>
+        private const int MaxLogRetryCount = 3;
+
+        /// <summary>
+        /// 写入数据库（logs 表）。nan_T 2026-09-09：按来源 Source 区分日志归属——
+        /// PLC → usertype=plc/logtype=PLC日志；API → usertype=api/logtype=接口日志；其余为系统日志。
+        /// nan_T 2026-09-23：写库失败时实现日志重发——将 logEntry 重新入队，最多重试 MaxLogRetryCount 次。
         /// </summary>
         private static void WriteToDatabase(LogEntry logEntry)
         {
             try
             {
+                // nan_T 2026-09-09：来源 → usertype/logtype 映射，实现“PLC 记 PLC 日志、API 记 API 日志”
+                string userType;
+                string logType;
+                switch (logEntry.Source)
+                {
+                    case "PLC":
+                        userType = "plc";
+                        logType = "PLC日志";
+                        break;
+                    case "API":
+                        userType = "api";
+                        logType = "接口日志";
+                        break;
+                    default:
+                        userType = "system";
+                        logType = GetLogType(logEntry.Level);
+                        break;
+                }
+
                 var logModel = new LogModel
                 {
-                    UserType = "system",
-                    LogType = GetLogType(logEntry.Level),
+                    UserType = userType,
+                    LogType = logType,
                     Level = logEntry.Level.ToString(),
                     Message = logEntry.Message,
                     Module = logEntry.Module,
@@ -418,8 +485,20 @@ namespace WCS_Helper
             }
             catch (Exception ex)
             {
-                // 数据库写入失败时记录到控制台
+                // nan_T 2026-09-23：日志重发机制——写库失败时重新入队，最多重试 MaxLogRetryCount 次。
+                // 超过重试上限后仅输出控制台，避免数据库持续不可用时日志无限堆积导致内存溢出。
                 Console.WriteLine($"数据库日志记录失败: {ex.Message}");
+
+                if (logEntry.RetryCount < MaxLogRetryCount)
+                {
+                    logEntry.RetryCount++;
+                    _logQueue.Enqueue(logEntry);
+                    _logEvent.Set();
+                }
+                else
+                {
+                    Console.WriteLine($"日志重试超过 {MaxLogRetryCount} 次上限，丢弃: Module={logEntry.Module} Operation={logEntry.Operation} Message={logEntry.Message}");
+                }
             }
         }
 
@@ -541,7 +620,14 @@ namespace WCS_Helper
             public string Message { get; set; }
             public LogLevel Level { get; set; }
             public string Details { get; set; }
+
+            /// <summary>nan_T 2026-09-09：日志来源（System/PLC/API）</summary>
+            public string Source { get; set; } = "System";
+
             public int ThreadId { get; set; }
+
+            /// <summary>nan_T 2026-09-23：日志写库失败重试计数（WriteToDatabase 失败时累加，达到上限后丢弃）</summary>
+            public int RetryCount { get; set; } = 0;
         }
     }
 }

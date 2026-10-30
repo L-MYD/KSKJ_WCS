@@ -1,9 +1,10 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using WCS_Helper; // nan_T 2026-09-09：日志统一走 LogHelper（落库），不再写 txt
 using WCS_Helper.Mapper;
 using WCS_Models.SqlModel;
 using WCS_Models.TESModel;
@@ -62,7 +63,8 @@ namespace WCS_Services
                 {
                     string logFilePath = Path.Combine(logPath, "newMoveTask_log.txt");
                     string logMessage = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}{Environment.NewLine}";
-                    File.AppendAllText(logFilePath, logMessage);
+                    // nan_T 2026-09-09：不再写 newMoveTask_log.txt，API 日志统一落 logs 表（来源=API/接口日志）
+                    LogHelper.Api("newMoveTask", logMessage);
                     Console.WriteLine(logMessage);
                 }
                 catch (Exception logEx)
@@ -114,24 +116,27 @@ namespace WCS_Services
                     }
                     Storagelocation fromstoragelocation = StoragelocationCollection.DataList.FirstOrDefault(x => x.Wmsreference == model.currentPosition);
                     Stationstatus tostationname = StationstatusCollection.DataList.FirstOrDefault(x => x.WmsStationName == tolococation);
-                    fromlococation = fromstoragelocation.Location;
-                    tolococation = tostationname.StationCode;
+                    // nan_T 2026-09-14：字典缺失（联调环境未维护字典）时保留模型原始编码，避免空引用
+                    if (fromstoragelocation != null) fromlococation = fromstoragelocation.Location;
+                    if (tostationname != null) tolococation = tostationname.StationCode;
                     tasktype = model.wmsTaskMessType;
                 }
                 else if (model.wmsTaskMessType == "IN" || model.wmsTaskMessType == "WH") // 回库/移库
                 {
                     Storagelocation tostoragelocation = StoragelocationCollection.DataList.FirstOrDefault(x => x.Wmsreference == model.desPosition);
                     Stationstatus fromstationname = StationstatusCollection.DataList.FirstOrDefault(x => x.WmsStationName == model.currentPosition);
-                    if (fromstationname == null)
-                    {
-                        Storagelocation fromstoragelocation = StoragelocationCollection.DataList.FirstOrDefault(x => x.Wmsreference == model.currentPosition);
-                        fromlococation = fromstoragelocation.Location;
-                    }
-                    else
+                    if (fromstationname != null)
                     {
                         fromlococation = fromstationname.TesCheckName;
                     }
-                    tolococation = tostoragelocation.Location;
+                    else
+                    {
+                        Storagelocation fromstoragelocation = StoragelocationCollection.DataList.FirstOrDefault(x => x.Wmsreference == model.currentPosition);
+                        // nan_T 2026-09-14：字典缺失时保留模型原始编码，避免空引用
+                        if (fromstoragelocation != null) fromlococation = fromstoragelocation.Location;
+                    }
+                    // nan_T 2026-09-14：字典缺失时保留模型原始编码，避免空引用
+                    if (tostoragelocation != null) tolococation = tostoragelocation.Location;
                     desext.Unload = 1;
                     taskExt.AutoToRest = 1;
                     tasktype = model.wmsTaskMessType;

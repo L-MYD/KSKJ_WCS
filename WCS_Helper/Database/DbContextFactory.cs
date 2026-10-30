@@ -1,4 +1,4 @@
-﻿using WCS_Common.Enums;
+using WCS_Common.Enums;
 
 namespace WCS_Helper.Database
 {
@@ -26,11 +26,26 @@ namespace WCS_Helper.Database
         }
 
         /// <summary>
-        /// 创建数据库上下文实例。
+        /// 创建数据库上下文实例（默认写库）。
         /// </summary>
         /// <returns>已携带数据库类型与连接串的 WcsDbContext 实例</returns>
         public WcsDbContext CreateContext()
         {
+            return new WcsDbContext(_dbType, _connectionString);
+        }
+
+        /// <summary>
+        /// nan_T 2026-09-09：按读写类型创建上下文（对齐 DTcms.Core 的工厂方法）。
+        /// 当前为单库模式：Write/Read 均使用同一连接串；
+        /// 后续接入读写分离时，在此按 writeRoRead 选择 WriteConnection / ReadConnectionList 即可，
+        /// BaseService 及各业务服务的调用代码无需任何改动。
+        /// </summary>
+        /// <param name="writeRoRead">操作类型：Write=写库，Read=读库/从库</param>
+        /// <returns>对应数据库连接的 WcsDbContext 实例</returns>
+        public WcsDbContext CreateContext(WriteRoRead writeRoRead)
+        {
+            // nan_T 2026-09-09：单库模式下读写同库；未来读库扩展点：
+            // if (writeRoRead == WriteRoRead.Read && _readConnectionList != null) { ...轮询/随机选从库... }
             return new WcsDbContext(_dbType, _connectionString);
         }
     }

@@ -45,21 +45,18 @@ namespace WCS_Services
 
         readonly ConveInfo _ConveInfo;
 
-        private bool _RecvConnState;
-        private bool _SendConnState;
+        // nan_T 2026-09-23：移除未使用的 _RecvConnState / _SendConnState（原字段无任何读取点，属死代码）。
 
         // nan_T 2026-09-09：PLCDB5Dic 会被 Recv/Send 等多个线程并发读写，
         // 原普通 Dictionary 非线程安全，并发写入可能导致死循环/数据丢失，改为 ConcurrentDictionary。
         public static ConcurrentDictionary<string, string> PLCDB5Dic = new ConcurrentDictionary<string, string>();
-        static readonly string plcstationcode = "2544";
-        static readonly string plcstationOutCode = "2557";
-        static readonly string tesstationcodeIn = "F1-PalletLine-IN";
-        static readonly string tesstationcodeOut = "F2-PalletLine-OUT";
-        static readonly string wmsapiip = "http://10.10.200.90:8003/";
+        // nan_T 2026-09-23：移除未使用的静态预留字段 plcstationcode/plcstationOutCode/tesstationcodeIn/tesstationcodeOut/wmsapiip
+        // （原字段已被赋值但无任何读取点，编译器警告 CS0414；如后续业务需要，再从配置或常量补充）。
 
-        public static bool PLCConnState = false;
-        private readonly Dictionary<string, DateTime> _processedMessages = new Dictionary<string, DateTime>();
-        private readonly TimeSpan _messageExpiry = TimeSpan.FromMinutes(5);
+        // nan_T 2026-09-23：标记为 volatile，保证多实例并发写入时对其他线程立即可见。
+        // 该字段仅在 _clientLock 锁内写入，bool 写入本身原子；volatile 解决可见性问题。
+        public static volatile bool PLCConnState = false;
+        // nan_T 2026-09-23：移除未使用的 _processedMessages 与 _messageExpiry（原字段无任何读取点，属死代码）。
         // nan_T 2026-09-09：合并重复字段，原 tesservice 与 toTesApiService 是两个完全相同的实例，统一为一个
         ToTesApiService toTesApiService = new ToTesApiService();
 
@@ -120,7 +117,90 @@ namespace WCS_Services
             Task.Run(Send).ContinueWith(
                 t => SaveErrToText("PLCServer", $"Send 循环致命异常: {t.Exception}"),
                 TaskContinuationOptions.OnlyOnFaulted);
+
+            // nan_T 2026-09-09：注册本实例的 PLC 指令自动重发委托。
+            // 后台重发服务会按消息中的 plcip 路由：不属于本 PLC 的消息返回 null 交由其他实例处理。
+            RetryRecorder.RegisterPlcSender(ResendPlcMessageAsync);
         }
+
+        /// <summary>
+        /// nan_T 2026-09-09：PLC 指令自动重发回调（由 RetryBackgroundService 经 RetryRecorder 调用）。
+        /// 解析重发记录中的指令元数据 JSON（plcip/db/start/length/hex），
+        /// plcip 不属于本实例时返回 null（交其他 PLCService 实例处理）；
+        /// 属于本实例则确保连接并重新执行 DBWrite，返回写入是否成功。
+        /// </summary>
+        /// <param name="message">重发记录</param>
+        /// <returns>null=非本PLC消息；true=重发成功；false=重发失败</returns>
+        private Task<bool?> ResendPlcMessageAsync(WCS_Models.WCSModel.RetryMessage message)
+        {
+            try
+            {
+                // nan_T 2026-09-09：解析指令元数据（hex 为 BitConverter.ToString 格式：AA-BB-CC）
+                var payload = JsonConvert.DeserializeObject<PlcRetryPayload>(message.Payload ?? "{}");
+                if (payload == null || string.IsNullOrEmpty(payload.Plcip))
+                {
+                    return Task.FromResult<bool?>(false);
+                }
+
+                // 按 plcip 路由：不是本实例的 PLC 直接返回 null
+                if (!string.Equals(payload.Plcip, _ConveIP, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult<bool?>(null);
+                }
+
+                // HEX 字符串还原为字节数组
+                byte[] bytes;
+                try
+                {
+                    bytes = payload.Hex.Split('-', StringSplitOptions.RemoveEmptyEntries)
+                        .Select(h => Convert.ToByte(h, 16))
+                        .ToArray();
+                }
+                catch (Exception hexEx)
+                {
+                    SaveErrToText("自动重发", $"HEX 解析失败: {hexEx.Message}, 原始: {payload.Hex}");
+                    return Task.FromResult<bool?>(false);
+                }
+
+                if (bytes.Length != payload.Length)
+                {
+                    SaveErrToText("自动重发", $"指令长度不符，期望 {payload.Length} 实际 {bytes.Length}，业务键 {message.BizKey}");
+                    return Task.FromResult<bool?>(false);
+                }
+
+                // 确保连接后在锁内重新写入（与 Send 循环使用同一把连接锁，避免并发写冲突）
+                if (!EnsureConnection())
+                {
+                    SaveErrToText("自动重发", $"PLC 连接未就绪，业务键 {message.BizKey}，等待下轮重试");
+                    return Task.FromResult<bool?>(false);
+                }
+
+                lock (_clientLock)
+                {
+                    var writeResult = _s7Client.DBWrite(payload.Db, payload.Start, payload.Length, bytes);
+                    if (writeResult == 0)
+                    {
+                        SaveLogText($"自动重发成功 业务键:{message.BizKey} 类型:{message.MsgType}", "RESEND");
+                        return Task.FromResult<bool?>(true);
+                    }
+                    else
+                    {
+                        SaveErrToText("自动重发", $"DBWrite 失败 ErrorCode:{writeResult}，业务键 {message.BizKey}");
+                        _isConnected = false;
+                        PLCConnState = false;
+                        return Task.FromResult<bool?>(false);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                SaveErrToText("自动重发", $"重发异常: {ex.Message}，业务键 {message.BizKey}");
+                return Task.FromResult<bool?>(false);
+            }
+        }
+
+        // nan_T 2026-09-09：PLC 重发报文模型 PlcRetryPayload 已移至模型层 WCS_Models.WCSModel（WCS_Model/WCSModel/PlcRetryPayload.cs），
+        // 服务层不再定义数据模型，统一由 WCS_Model 承载。
 
         private bool EnsureConnection()
         {
@@ -502,6 +582,31 @@ namespace WCS_Services
                                                 _isConnected = false;
                                                 PLCConnState = false;
                                                 SaveErrToText("DB4写失败", $"ErrorCode:{sendResult}");
+
+                                                // nan_T 2026-09-09：DB4 写入失败，指令落 retry_messages 表，
+                                                // 由 RetryBackgroundService 在连接恢复后自动重发（不再只写 txt）
+                                                try
+                                                {
+                                                    var plcRetryPayload = JsonConvert.SerializeObject(new
+                                                    {
+                                                        plcip = _ConveIP,
+                                                        symbol = _ConveSymbol,
+                                                        db = _DB04Num,
+                                                        start = 0,
+                                                        length = _DB04Len,
+                                                        hex = BitConverter.ToString(SendMess)
+                                                    });
+                                                    RetryRecorder.EnqueuePlc(
+                                                        plcRetryPayload,
+                                                        $"Station:{ConveSendMess.ToLocation}/BoxID:{ConveSendMess.StUintID}",
+                                                        "DB4写",
+                                                        $"DBWrite ErrorCode:{sendResult}");
+                                                }
+                                                catch (Exception retryEx)
+                                                {
+                                                    SaveErrToText("DB4写失败-重发记录异常", retryEx.Message);
+                                                }
+
                                                 continue;   // 原为 return，改为 continue
                                             }
                                             else
@@ -628,39 +733,15 @@ namespace WCS_Services
             return new string(validChars);
         }
 
+        /// <summary>
+        /// nan_T 2026-09-09：原“PLC 错误写 txt（C:\WCSErrLog）”方法，现改为写数据库 logs 表（PLC日志/ERROR），
+        /// 不再生成任何 txt 文件；方法签名保留，所有既有调用点无需修改。
+        /// </summary>
+        /// <param name="Detail">出错环节/操作（如 DB5读失败、连接失败）</param>
+        /// <param name="reason">错误原因</param>
         void SaveErrToText(string Detail, string reason)
         {
-            const string FilePath = @"C:\WCSErrLog";
-            var FileName = DateTime.UtcNow.ToString("yyyyMMdd");
-
-            StreamWriter sw = null;
-            FileStream fs = null;
-
-            try
-            {
-                if (!Directory.Exists(FilePath))
-                    Directory.CreateDirectory(FilePath);
-
-                FileName = "WcsErrLog_" + FileName + ".txt";
-                var Path = FilePath + @"\" + FileName;
-
-                if (!File.Exists(Path))
-                {
-                    fs = File.Create(Path);
-                    fs.Close();
-                    fs.Dispose();
-                }
-
-                sw = File.AppendText(Path);
-                var AddTxt = $"DealMessage:{Detail} \n Reason:{reason} \n Datetime:{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} \n";
-                sw.Write(AddTxt);
-                sw.Close();
-            }
-            catch
-            {
-                sw?.Close();
-                fs?.Close();
-            }
+            LogHelper.Plc(Detail, $"PLC错误: {reason}", isError: true, details: reason);
         }
 
         public string DeleteChar(string str)
@@ -718,39 +799,16 @@ namespace WCS_Services
             return result.TrimEnd(' ');
         }
 
+        /// <summary>
+        /// nan_T 2026-09-09：原“PLC 运行日志写 txt（C:\PLCLog）”方法，现改为写数据库 logs 表（PLC日志/INFO），
+        /// 不再生成任何 txt 文件；方法签名保留，所有既有调用点无需修改。
+        /// </summary>
+        /// <param name="Detail">日志详情（如消息描述、连接信息）</param>
+        /// <param name="MessType">消息类型/环节（如 SEND、PLCServer）</param>
         void SaveLogText(string Detail, string MessType)
         {
-            const string FilePath = @"C:\PLCLog";
-            var FileName = DateTime.UtcNow.ToString("yyyyMMdd_HH");
-
-            StreamWriter sw = null;
-            FileStream fs = null;
-
-            try
-            {
-                if (!Directory.Exists(FilePath))
-                    Directory.CreateDirectory(FilePath);
-
-                FileName = $"{_ConveSymbol}_Log{FileName}.txt";
-                var Path = FilePath + @"\" + FileName;
-
-                if (!File.Exists(Path))
-                {
-                    fs = File.Create(Path);
-                    fs.Close();
-                    fs.Dispose();
-                }
-
-                sw = File.AppendText(Path);
-                var AddTxt = $"{MessType}=>{Detail}  {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} \n";
-                sw.Write(AddTxt);
-                sw.Close();
-            }
-            catch
-            {
-                sw?.Close();
-                fs?.Close();
-            }
+            // nan_T 2026-09-09：把原 txt 行内容（MessType=>Detail 时间）完整放进 message，便于在库中检索
+            LogHelper.Plc(MessType, $"{MessType}=>{Detail} [{_ConveSymbol}] {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
         }
 
         string getWMSTaskID()

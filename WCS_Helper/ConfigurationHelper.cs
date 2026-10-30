@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
 using System;
 using System.IO;
 using WCS_Common.Enums;
@@ -61,8 +61,11 @@ namespace WCS_Helper
 
         /// <summary>
         /// 获取数据库连接字符串。
-        /// 不传 name 时：优先取 WriteConnection（对齐 DTcms 的写库连接），为空则回退 DefaultConnection；
         /// 显式传入 name 时：读取 ConnectionStrings 下指定名称的连接串（向后兼容旧调用）。
+        /// nan_T 2026-09-09：不传 name 时，按当前 <see cref="GetDBType"/> 自动选择对应数据库的专用连接串
+        /// （SqlServer→SqlServerConnection / PostgreSQL→PostgreSqlConnection / MySql→MySqlConnection）；
+        /// 若专用连接串缺失，则回退 WriteConnection，再回退 DefaultConnection。
+        /// 这样切换主数据库时只需改 DBType，连接串随之匹配，避免“类型是 SqlServer 却拿到 Npgsql 连接串”。
         /// </summary>
         /// <param name="name">连接串名称，可为空</param>
         public static string GetConnectionString(string name = null)
@@ -72,7 +75,22 @@ namespace WCS_Helper
                 return _configuration.GetConnectionString(name);
             }
 
-            // 单库模式统一使用 WriteConnection
+            // nan_T 2026-09-09：优先按数据库类型取专用连接串
+            string providerKey = GetDBType() switch
+            {
+                DBType.SqlServer => "SqlServerConnection",
+                DBType.MySql => "MySqlConnection",
+                DBType.PostgreSQL => "PostgreSqlConnection",
+                _ => "PostgreSqlConnection"
+            };
+
+            var providerConnection = _configuration.GetConnectionString(providerKey);
+            if (!string.IsNullOrWhiteSpace(providerConnection))
+            {
+                return providerConnection;
+            }
+
+            // 回退：单库模式统一使用 WriteConnection，再回退 DefaultConnection
             var writeConnection = _configuration.GetConnectionString("WriteConnection");
             return string.IsNullOrWhiteSpace(writeConnection)
                 ? _configuration.GetConnectionString("DefaultConnection")

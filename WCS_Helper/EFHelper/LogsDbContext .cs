@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System;
@@ -23,37 +23,42 @@ public static class LogsDbContext
 
     private static void LogError(string message, string details, Exception ex, [System.Runtime.CompilerServices.CallerMemberName] string operation = "")
     {
-        // 避免无限递归，不再调用 Insert 记录错误，而是直接写入文件
+        // nan_T 2026-09-09：不再写 txt 文件，日志落库失败时仅输出控制台，避免无限递归
         SaveErrToText(message, $"{details}\n异常信息: {ex.Message}");
     }
 
+    /// <summary>
+    /// nan_T 2026-09-09：原“写错误 txt 文件”方法，现改为将错误日志写入数据库 logs 表（ERROR 级系统日志）；
+    /// 方法名保留不变，避免改动大量既有调用点。数据库也不可用时仅输出控制台，绝不落盘 txt。
+    /// </summary>
     public static void SaveErrToText(string detail, string reason)
     {
-        const string FilePath = @"C:\LogErrLog";
-        var fileName = DateTime.UtcNow.ToString("yyyyMMdd");
-        StreamWriter sw = null;
-        FileStream fs = null;
         try
         {
-            if (!Directory.Exists(FilePath))
-                Directory.CreateDirectory(FilePath);
-            fileName = "LogErrLog_" + fileName + ".txt";
-            var fullPath = Path.Combine(FilePath, fileName);
-            if (!File.Exists(fullPath))
+            var log = new LogModel
             {
-                fs = File.Create(fullPath);
-                fs.Close();
-                fs.Dispose();
-            }
-            sw = File.AppendText(fullPath);
-            var addTxt = $"DealMessage:{detail} \n Reason:{reason} \n Datetime:{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} \n";
-            sw.Write(addTxt);
-            sw.Close();
+                UserType = "system",
+                LogType = "Error",
+                Level = "Error",
+                Message = detail,
+                Module = "System",
+                Operation = "SaveErrToText",
+                Details = reason,
+                UserId = "System",
+                IpAddress = "127.0.0.1",
+                CreateTime = DateTime.UtcNow,
+                IsArchived = "False"
+            };
+
+            // 直接走 EF 落库；Insert 内部已捕获异常并只输出控制台，不会递归回本方法
+            using var context = CreateDbContext();
+            context.Logs.Add(log);
+            context.SaveChanges();
         }
-        catch
+        catch (Exception ex)
         {
-            sw?.Close();
-            fs?.Close();
+            // nan_T 2026-09-09：最后兜底：数据库也写不进去时只打印控制台，不再生成任何 txt 文件
+            Console.WriteLine($"[SaveErrToText] {detail} | {reason} | DB写入失败: {ex.Message}");
         }
     }
     #endregion
@@ -72,14 +77,10 @@ public static class LogsDbContext
         }
         catch (Exception ex)
         {
-            // 获取内部异常详细信息（PostgreSQL 错误通常在 InnerException）
+            // nan_T 2026-09-09：日志落库失败不再写 log_error.txt 文件，仅输出控制台，避免产生散落 txt
             var innerEx = ex.InnerException;
             var errorMsg = innerEx != null ? innerEx.Message : ex.Message;
-            var stackTrace = innerEx != null ? innerEx.StackTrace : ex.StackTrace;
-
-            // 写入文件，避免递归调用 Insert 方法
-            var logEntry = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {errorMsg}\n{stackTrace}\n";
-            System.IO.File.AppendAllText("log_error.txt", logEntry);
+            Console.WriteLine($"[LogsDbContext.Insert] 日志写库失败: {errorMsg}");
 
             return false;
         }
@@ -291,66 +292,50 @@ public static class LogsDbContext
     #endregion
 }
 
+/// <summary>
+/// nan_T 2026-09-09：原“写 txt 错误日志”的静态 Logger，现改为写数据库 logs 表 + 控制台兜底，
+/// 不再生成任何 txt 文件。方法签名保持不变，既有调用点无需修改。
+/// </summary>
 public static class Logger
 {
-    // 日志目录可从配置文件读取，默认值备用
-    private static readonly string LogDirectory;
-
-    static Logger()
-    {
-        // 尝试从配置文件读取日志路径，若失败则使用默认路径
-        try
-        {
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile("appsettings.json", optional: true)
-                .Build();
-
-            LogDirectory = configuration["Logging:FileLogDirectory"] ?? @"C:\Logs\TaskLogs";
-        }
-        catch
-        {
-            LogDirectory = @"C:\Logs\TaskLogs";
-        }
-
-        if (!Directory.Exists(LogDirectory))
-        {
-            Directory.CreateDirectory(LogDirectory);
-        }
-    }
-
     public static void SaveErrToText(string detail, string reason)
     {
-        WriteToFile(detail, reason, isAsync: false).GetAwaiter().GetResult(); // 同步调用异步实现（避免重复代码）
+        WriteToDatabase(detail, reason);
     }
 
     public static Task SaveErrToTextAsync(string detail, string reason)
     {
-        return WriteToFile(detail, reason, isAsync: true);
+        WriteToDatabase(detail, reason);
+        return Task.CompletedTask;
     }
 
-    private static async Task WriteToFile(string detail, string reason, bool isAsync)
+    /// <summary>
+    /// nan_T 2026-09-09：错误日志落库（系统级 ERROR）；数据库不可用时仅输出控制台。
+    /// </summary>
+    private static void WriteToDatabase(string detail, string reason)
     {
         try
         {
-            string fileName = $"LogErrLog_{DateTime.UtcNow:yyyyMMdd}.txt";
-            string filePath = Path.Combine(LogDirectory, fileName);
-
-            string content = $"DealMessage:{detail}\nReason:{reason}\nDatetime:{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}\n";
-
-            if (isAsync)
+            var log = new LogModel
             {
-                await File.AppendAllTextAsync(filePath, content);
-            }
-            else
-            {
-                File.AppendAllText(filePath, content);
-            }
+                UserType = "system",
+                LogType = "Error",
+                Level = "Error",
+                Message = detail,
+                Module = "System",
+                Operation = "Logger.SaveErrToText",
+                Details = reason,
+                UserId = "System",
+                IpAddress = "127.0.0.1",
+                CreateTime = DateTime.UtcNow,
+                IsArchived = "False"
+            };
+            LogsDbContext.Insert(log);
         }
         catch (Exception ex)
         {
-            // 日志记录失败时的后备处理：输出到控制台或系统事件（避免无限递归）
-            Console.WriteLine($"[Logger Error] {ex.Message}");
+            // 最后兜底：只打控制台，不写任何文件
+            Console.WriteLine($"[Logger Error] {detail} | {reason} | DB写入失败: {ex.Message}");
         }
     }
 }

@@ -1,7 +1,8 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using WCS_Helper; // nan_T 2026-09-09：日志统一走 LogHelper（落库），不再写 txt
 using WCS_Models.TESModel;
 using WCS_Models.WCSModel;
 
@@ -105,10 +106,8 @@ namespace WCS_Services
         {
             try
             {
-                string logDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-                if (!Directory.Exists(logDir)) Directory.CreateDirectory(logDir);
-                string logFile = Path.Combine(logDir, $"PodSync_{DateTime.Now:yyyyMMdd}.log");
-                File.AppendAllText(logFile, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}{Environment.NewLine}");
+                // nan_T 2026-09-09：不再写 PodSync_*.log 文件，API 日志统一落 logs 表（来源=API/接口日志）
+                LogHelper.Api("PodSync", $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} - {message}");
             }
             catch { /* 忽略日志写入错误 */ }
         }

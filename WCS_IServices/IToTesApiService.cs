@@ -1,4 +1,4 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using WCS_Models;
 using WCS_Models.TESModel;
 using WCS_Models.WMSModel;
@@ -26,11 +26,17 @@ namespace WCS_IServices
         /// <summary>设置工位状态</summary>
         StationReturn setStationStatus(TessetStationStatus model);
 
-        /// <summary>处理 WMS 回传的任务接收结果</summary>
-        Task<ReturnWcs> GetWmsreceiveTask(UpdateTaskRequest model);
+        /// <summary>上报任务完成状态到 WMS（/api/WMS/WCSTaskFinish）</summary>
+        Task<WCSTaskFinishReturn> GetWmsreceiveTask(WCSTaskFinishModel model);
 
-        /// <summary>获取空托盘申请</summary>
-        Task<ReturnWcs> GetPalnoApply(UpdateTaskRequest model);
+        /// <summary>托盘入库申请（/api/WMS/PalnoApply）</summary>
+        Task<PalnoApplyReturn> GetPalnoApply(PalnoApplyModel model);
+
+        /// <summary>设备状态上报（/api/WMS/DeviceStatu）</summary>
+        Task<WmsSimpleReturn> PostDeviceStatu(DeviceStatuModel model);
+
+        /// <summary>LED 显示（/WMS/Bqs/LED）</summary>
+        Task<WmsSimpleReturn> PostLed(LEDModel model);
 
         /// <summary>提交空托盘申请</summary>
         Task<ReturnWcs> PostPalnoApply(UpdateEmptyPallet model);

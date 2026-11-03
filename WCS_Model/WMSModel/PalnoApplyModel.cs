@@ -1,63 +1,62 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System;
 
 namespace WCS_Models.WMSModel
 {
     /// <summary>
-    /// WCS托盘入库申请 WMS：WCS->WMS  模型
+    /// WCS 托盘入库申请 WMS：WCS→WMS 请求模型（POST /api/WMS/PalnoApply）
+    /// nan_T 2026-10-30：按《WMS-WCS对接协议》定义字段
     /// </summary>
     public class PalnoApplyModel
     {
+        /// <summary>
+        /// WCS 流水号
+        /// </summary>
+        public string WcsId { get; set; }
 
         /// <summary>
-        /// WCSID唯一请求号
+        /// 申请点（WMS 站点名称）
         /// </summary>
-        public string reqCode { get; set; }
-
-        /// <summary>
-        /// 请求时间  格式：yyyy-MM-dd HH:mm:ss
-        /// </summary>
-        public string reqTime { get; set; } = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
-
-        /// <summary>
-        /// 设备，PLC设备等
-        /// </summary>
-        public string eqptId { get; set; }
-
-        /// <summary>
-        /// 当前位置(出入库接驳口，或货物移障标识)
-        ///移障标识:YZFLG
-        /// </summary>
-        public string carrierLoc { get; set; }
-
+        public string ApplyLocation { get; set; }
 
         /// <summary>
         /// 容器号
         /// </summary>
-        public string carrierId { get; set; }
+        public string Palno { get; set; }
 
         /// <summary>
-        /// 操作人
+        /// 容器高度 H：高 L：矮 M：中
         /// </summary>
-        public string evtUsr { get; set; } = "WCS";
+        public string Height { get; set; }
+    }
+
+    /// <summary>
+    /// WCS 托盘入库申请 WMS：WCS→WMS 返回模型
+    /// </summary>
+    public class PalnoApplyReturn
+    {
+        /// <summary>
+        /// 消息类型 S:成功 E:程序异常 F:失败
+        /// </summary>
+        public string msgType { get; set; }
 
         /// <summary>
-        /// 重量
+        /// 消息文本
         /// </summary>
-        public string weight { get; set; }
+        public string msgText { get; set; }
 
         /// <summary>
-        /// 叠盘机上母托数量 8
+        /// WCS 流水号
         /// </summary>
-        public int prdQty { get; set; }
+        public string WcsId { get; set; }
 
         /// <summary>
-        /// 叠盘机入库标识:FOLD
+        /// WMS 流水号
         /// </summary>
-        public string carrierDpj { get; set; }
+        public string WmsId { get; set; }
 
+        /// <summary>
+        /// 回执通道（通道号/单元货位）
+        /// </summary>
+        public string ToLocation { get; set; }
     }
 }

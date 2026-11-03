@@ -79,6 +79,17 @@ namespace WCS_Services
         }
 
         /// <summary>
+        /// nan_T 2026-10-30：判断 TES 任务是否为出库类任务。
+        /// 目的地命中站台字典（TesStationName）即为出库；否则按入库（货位/通道）处理。
+        /// </summary>
+        private static bool IsOutTask(TescorrespondsWms trw)
+        {
+            if (trw == null || string.IsNullOrEmpty(trw.TargetLocation))
+                return false;
+            return StationNameModelCollection.DataList.Any(x => x.TesStationName == trw.TargetLocation);
+        }
+
+        /// <summary>
         /// 发送任务
         /// </summary>
         /// <param name="model"></param>
@@ -304,68 +315,142 @@ namespace WCS_Services
 
                 WriteLog($"数据库查询成功: WmsTaskID={trw.WmsTaskID}, WmsTaskType={trw.WmsTaskType}");
 
-                // 构建发送给WMS的状态更新数据
-                UpdateTaskInnerData taskmodel = new UpdateTaskInnerData();
-                taskmodel.reqCode = Guid.NewGuid().ToString("N");
-                taskmodel.taskId = trw.WmsTaskID;
-                string errorreason = "";
-                WriteLog($"构建请求对象: wcsid={taskmodel.taskId}");
+                // nan_T 2026-10-30：按《WMS-WCS对接协议》构建任务完成上报请求（POST /api/WMS/WCSTaskFinish）
+                WCSTaskFinishModel taskmodel = new WCSTaskFinishModel
+                {
+                    WcsId = trw.WcsId,
+                    WmsId = trw.WmsTaskID,
+                    Palno = trw.Podid
+                };
+                WriteLog($"构建请求对象: wcsid={taskmodel.WcsId}, palno={taskmodel.Palno}");
                 int statu = content.Status;
                 switch (statu)
                 {
                     case 2: // 任务开始
-                        taskmodel.taskStat = "1";
-                        trw.Statu = "开始执行任务";
-                        WriteLog("任务状态: 开始执行任务 (2 → 1)");
+                        if (IsOutTask(trw))
+                        {
+                            taskmodel.Statu = "SO";
+                            trw.Statu = "穿梭车开始执行";
+                            WriteLog("任务状态: 穿梭车开始执行 (2 → SO)");
+                        }
+                        else
+                        {
+                            taskmodel.Statu = "IS";
+                            trw.Statu = "入库开始执行";
+                            WriteLog("任务状态: 入库开始执行 (2 → IS)");
+                        }
                         break;
                     case 4: // 任务完成
-                        taskmodel.taskStat = "2";
-                        trw.Statu = "任务完成";
-                        WriteLog("任务状态: 任务完成 (4 → 2)");
+                        if (IsOutTask(trw))
+                        {
+                            taskmodel.Statu = "FO";
+                            trw.Statu = "输送机出库完成";
+                            WriteLog("任务状态: 输送机出库完成 (4 → FO)");
+                        }
+                        else if (AislesCollection.DataList.FirstOrDefault(x => x.AislesName == trw.TargetLocation) != null)
+                        {
+                            taskmodel.Statu = "IF";
+                            trw.Statu = "通道请求深度";
+                            WriteLog("任务状态: 通道请求深度 (4 → IF)");
+                        }
+                        else
+                        {
+                            taskmodel.Statu = "PF";
+                            trw.Statu = "托盘入库完毕";
+                            WriteLog("任务状态: 托盘入库完毕 (4 → PF)");
+                        }
                         break;
                     case 5: // 任务失败
                         if (content.ErrorCode == 1330012)
                         {
-                            taskmodel.taskStat = "5";
-                            trw.Statu = "空取";
-                            taskmodel.errMsg = "空取";
-                            WriteLog("任务状态: 空取 (5 → 3)");
+                            taskmodel.Statu = "K";
+                            trw.Statu = "空取货";
+                            WriteLog("任务状态: 空取货 (5 → K)");
                         }
-                        else if (content.ErrorCode == 1330003)
+                        else if (content.ErrorCode == 1330003 || content.ErrorCode == 1380059)
                         {
-                            taskmodel.taskStat = "4";
-                            errorreason = ExtractPodIdFromErrorReasonRegex(content.ErrorReason);
-                            WriteLog("被(%v)货架挡住，目标位置不可达 (5 → 4)重新申请分配目的地");
+                            taskmodel.Statu = "C";
+                            trw.Statu = "入库双重";
+                            WriteLog("任务状态: 入库双重 (5 → C)");
                         }
                         else
                         {
-                            taskmodel.taskStat = "5";
+                            // nan_T 2026-10-30：协议未定义其它异常状态，不上报 WMS，仅更新本地状态
                             trw.Statu = "其它异常";
-                            taskmodel.errMsg = $"异常代码：{content.ErrorCode}，异常类容：{content.ErrorReason}";
-                            WriteLog($"任务状态: 其它异常 (5 → 5)异常代码：{content.ErrorCode}，异常类容{content.ErrorReason}");
+                            WriteLog($"任务状态: 其它异常，异常代码：{content.ErrorCode}，异常内容：{content.ErrorReason}", true);
+                            int reupdateError = TaskDbContext.UpdateStatusAsync(new TescorrespondsWms
+                            {
+                                TesTaskID = content.TaskID.ToString(),
+                                Statu = trw.Statu,
+                                CompletionTime = DateTime.UtcNow,
+                                TargetLocation = trw.TargetLocation,
+                                WcsId = trw.WcsId
+                            });
+                            WriteLog($"数据库更新结果: {reupdateError} 条记录受影响");
+                            return;
                         }
                         break;
                 }
 
-                UpdateTaskRequest resendmodel = new UpdateTaskRequest();
-                resendmodel.strInMsg = JsonConvert.SerializeObject(taskmodel);
-
-                // ★★★ 新增：判断是否需要缓存回调（避免在HTTP响应返回前转发） ★★★
+                // ★★★ 判断是否需要缓存回调（避免在HTTP响应返回前转发） ★★★
                 if (CallbackCache.IsPending(trw.WmsTaskID))
                 {
                     // 该任务所属批次尚未返回HTTP响应，缓存此回调
-                    CallbackCache.Enqueue(trw.WmsTaskID, resendmodel);
+                    CallbackCache.Enqueue(trw.WmsTaskID, taskmodel);
                     WriteLog($"任务 {trw.WmsTaskID} 的回调已缓存，待HTTP响应返回后补发");
                     // 不转发，直接返回
                     return;
                 }
 
                 // 否则正常转发给WMS
-                ReturnWcs getwmsreceiveTaskreturn = await GetWmsreceiveTask(resendmodel);
-                WriteLog($"WMS返回状态:{getwmsreceiveTaskreturn.rtnCode}");
+                WCSTaskFinishReturn getwmsreceiveTaskreturn = await GetWmsreceiveTask(taskmodel);
+                WriteLog($"WMS返回状态:{getwmsreceiveTaskreturn?.msgType}");
 
-                if (getwmsreceiveTaskreturn.rtnCode == "0000000")
+                if (getwmsreceiveTaskreturn != null && getwmsreceiveTaskreturn.msgType == "S")
                 {
+                    // nan_T 2026-10-30：Statu=IF 时 WMS 返回具体货位，WCS 按该货位再创建一条搬运任务
+                    if (taskmodel.Statu == "IF")
+                    {
+                        Storagelocation storagelocation = StoragelocationCollection.DataList.FirstOrDefault(x => x.Wmsreference == getwmsreceiveTaskreturn.Addre);
+                        if (storagelocation == null)
+                        {
+                            WriteLog($"WMS 返回货位 {getwmsreceiveTaskreturn.Addre} 在 WCS 货位字典中不存在，无法创建搬运任务", true);
+                            return;
+                        }
+
+                        newMoveTaskModel tesmodel = new newMoveTaskModel
+                        {
+                            wmsId = trw.WmsTaskID,
+                            podId = trw.Podid,
+                            currentPosition = content.DesNodeID,
+                            desPosition = storagelocation.Location,
+                            priority = 3
+                        };
+                        DesExt desExt = new DesExt { Unload = 1 };
+                        TaskExt taskExt = new TaskExt { AutoToRest = 1 };
+                        TaskReqsonModel trm = CreateMoveTask(tesmodel, desExt, taskExt);
+                        if (trm?.returnUserMsg == "成功")
+                        {
+                            WriteLog($"更新任务状态:{trw.Statu}");
+                            TescorrespondsWms tcm1 = new TescorrespondsWms
+                            {
+                                TesTaskID = trm.data.taskID.ToString(),
+                                Statu = trw.Statu,
+                                CompletionTime = DateTime.UtcNow,
+                                TargetLocation = tesmodel.desPosition,
+                                WcsId = trw.WcsId
+                            };
+                            int reupdate1 = TaskDbContext.UpdateStatusAsync(tcm1);
+                            WriteLog($"数据库更新结果: {reupdate1} 条记录受影响");
+                            WriteLog("=== 处理成功完成 ===");
+                        }
+                        else
+                        {
+                            WriteLog($"通道深度搬运任务创建失败: {trm?.returnUserMsg}", true);
+                        }
+                        return;
+                    }
+
                     WriteLog($"更新任务状态:{trw.Statu}");
                     TescorrespondsWms tcm = new TescorrespondsWms
                     {
@@ -376,30 +461,11 @@ namespace WCS_Services
                         WcsId = trw.WcsId
                     };
 
-                    if (taskmodel.taskStat == "4")
-                    {
-                        PalnoApplyModel taskmodelre = new PalnoApplyModel();
-                        taskmodelre.reqCode = trw.WcsId;
-                        taskmodelre.carrierId = errorreason;
-                        taskmodelre.carrierLoc = "YZFLG";
-                        taskmodelre.eqptId = "";
-                        taskmodelre.weight = "";
-
-                        WriteLog($"构建移障请求对象: taskId={trw.WmsTaskID}, containerNo={trw.Podid}");
-                        UpdateTaskRequest resendmodelre = new UpdateTaskRequest();
-                        resendmodelre.strInMsg = JsonConvert.SerializeObject(taskmodelre);
-                        ReturnWcs wmsToWcsReturn = await GetPalnoApply(resendmodelre);
-                        if (wmsToWcsReturn.rtnCode == "0000000")
-                        {
-                            // success
-                        }
-                    }
-
                     int reupdate = TaskDbContext.UpdateStatusAsync(tcm);
                     WriteLog($"数据库更新结果: {reupdate} 条记录受影响");
 
                     Stationstatus stationstatus = StationstatusCollection.DataList.FirstOrDefault(x => x.StationCode == tcm.TargetLocation);
-                    if (taskmodel.taskStat == "2")
+                    if (taskmodel.Statu == "PF" || taskmodel.Statu == "FO")
                     {
                         if (stationstatus != null)
                         {
@@ -1140,34 +1206,30 @@ namespace WCS_Services
                 // 拿到对应的对象之后，我们就把这个对象中的wmsid,跟wms的类型一起拿到
                 if (content.Signal.ErrorCode == 0)
                 {
-                    PalnoApplyModel taskmodel = new PalnoApplyModel();//新建一个发送给wms的消息对象
-                    taskmodel.reqCode = getWCSTaskID();//任务id
-                    taskmodel.carrierId = content.Signal.BarCode;//容器号
+                    // nan_T 2026-10-30：按《WMS-WCS对接协议》构建托盘入库申请（POST /api/WMS/PalnoApply）
+                    PalnoApplyModel taskmodel = new PalnoApplyModel
+                    {
+                        WcsId = getWCSTaskID(),                 // WCS 流水号
+                        Palno = content.Signal.BarCode          // 容器号
+                    };
                     //WriteLog($"接收到消息: StationCode={content.StationCode}, WMSstationName={StationNameModelCollection.DataList.FirstOrDefault(x => x.TesCheckName == content.StationCode).WmsStationName} ,");
                     Stationstatus st = StationstatusCollection.DataList.FirstOrDefault(x => x.TesCheckName == content.StationCode && x.Status == "入库");
 
-                    taskmodel.carrierLoc = st.WmsStationName;//站点号
-                    taskmodel.eqptId = content.RobotId;
-                    taskmodel.weight = content.Signal.SignalBody.WeightKg.ToString();
-                    EmptyPodIDApply emptyPodIDApply = TaskDbContext.GetEmptyPodIDApplyByPodID(taskmodel.carrierId);
-                    if (emptyPodIDApply != null)
-                    {
-                        taskmodel.prdQty = emptyPodIDApply.PodNum;
-                        taskmodel.carrierDpj = "FOLD";
-                    }
+                    taskmodel.ApplyLocation = st.WmsStationName;//申请点（站点号）
 
-                    WriteLog($"构建请求对象: taskId={taskmodel.reqCode}, containerNo={taskmodel.carrierId}");
+                    // nan_T 2026-10-30：容器高度 2100mm 按高（H）上报，其余按矮（L）上报
+                    int heightMm = content.Signal.SignalBody.SizeCheck.Height;
+                    taskmodel.Height = heightMm >= 2100 ? "H" : "L";
 
-                    UpdateTaskRequest resendmodel = new UpdateTaskRequest();
-                    resendmodel.strInMsg = JsonConvert.SerializeObject(taskmodel);
+                    WriteLog($"构建请求对象: wcsId={taskmodel.WcsId}, palno={taskmodel.Palno}, height={taskmodel.Height}");
 
-                    bool success = false;
-                    ReturnWcs wmsToWcsReturn = new ReturnWcs();
-                    wmsToWcsReturn = await GetPalnoApply(resendmodel);
+                    PalnoApplyReturn wmsToWcsReturn = await GetPalnoApply(taskmodel);
                     string tolocation = "";
-                    if (wmsToWcsReturn.rtnCode != "0000000")
+                    if (wmsToWcsReturn == null || wmsToWcsReturn.msgType != "S")
                     {
-                        if (wmsToWcsReturn.rtnMesg.Contains("存在未完成的任务,不能再次请求入库"))
+                        string msgText = wmsToWcsReturn?.msgText ?? "";
+                        WriteLog($"WMS托盘入库申请失败: {wmsToWcsReturn?.msgType} {msgText}", true);
+                        if (msgText.Contains("存在未完成的任务,不能再次请求入库"))
                         {
                             return;
                         }
@@ -1197,11 +1259,9 @@ namespace WCS_Services
                                 CanWrite = "01",
                             });
                         }
+                        return;
                     }
-                    if (wmsToWcsReturn.rtnCode == "0000000")
-                    {
-                        TaskDbContext.DeleteEmptyPodIDApply(taskmodel.carrierId);//成功后删除
-                    }
+                    TaskDbContext.DeleteEmptyPodIDApply(taskmodel.Palno);//成功后删除
                     return;
                 }
             }
@@ -1543,7 +1603,7 @@ namespace WCS_Services
         /// </summary>
         /// <param name="model"></param>
         /// <returns></returns>
-        public async Task<ReturnWcs> GetWmsreceiveTask(UpdateTaskRequest model)
+        public async Task<WCSTaskFinishReturn> GetWmsreceiveTask(WCSTaskFinishModel model)
         {
             // 初始化日志路径
             string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
@@ -1579,7 +1639,7 @@ namespace WCS_Services
                 try
                 {
                     // 记录HTTP请求 - 完整的请求信息
-                    string serviceAddress = wmsapiip + "/matrix/sendMsg/WWCSAPI/S";
+                    string serviceAddress = wmsapiip + "/api/WMS/WCSTaskFinish";
                     string requestJson = JsonConvert.SerializeObject(model);
                     var httpRequestLog = new LogModel
                     {
@@ -1648,7 +1708,7 @@ namespace WCS_Services
                                 };
                                 LogsDbContext.Insert(httpResponseLog);
 
-                                var result = JObject.Parse(retString).ToObject<ReturnWcs>();
+                                var result = JObject.Parse(retString).ToObject<WCSTaskFinishReturn>();
                                 return result;
                             }
                         }
@@ -1704,7 +1764,7 @@ namespace WCS_Services
         /// <param name="model"></param>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public async Task<ReturnWcs> GetPalnoApply(UpdateTaskRequest model)
+        public async Task<PalnoApplyReturn> GetPalnoApply(PalnoApplyModel model)
         {
             // 初始化日志路径
             string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
@@ -1740,7 +1800,7 @@ namespace WCS_Services
                 try
                 {
                     // 记录HTTP请求 - 完整的请求信息
-                    string serviceAddress = wmsapiip + "/matrix/sendMsg/WWCSAPI/Q";
+                    string serviceAddress = wmsapiip + "/api/WMS/PalnoApply";
                     string requestJson = JsonConvert.SerializeObject(model);
                     var httpRequestLog = new LogModel
                     {
@@ -1809,7 +1869,7 @@ namespace WCS_Services
                                 };
                                 LogsDbContext.Insert(httpResponseLog);
 
-                                var result = JObject.Parse(retString).ToObject<ReturnWcs>();
+                                var result = JObject.Parse(retString).ToObject<PalnoApplyReturn>();
                                 return result;
                             }
                         }
@@ -1856,6 +1916,164 @@ namespace WCS_Services
             }
 
             // 理论上不会执行到这里，因为要么成功返回，要么抛出异常
+            throw new Exception("未知错误：重试逻辑异常");
+        }
+
+        /// <summary>
+        /// nan_T 2026-10-30：设备状态上报（POST /api/WMS/DeviceStatu）。
+        /// 协议备注：触发时调用，不要频繁调用。
+        /// </summary>
+        public async Task<WmsSimpleReturn> PostDeviceStatu(DeviceStatuModel model)
+        {
+            return await PostWmsSimple("api/WMS/DeviceStatu", model, "PostDeviceStatu", "设备状态上报");
+        }
+
+        /// <summary>
+        /// nan_T 2026-10-30：LED 显示（POST /WMS/Bqs/LED）。
+        /// Statu：Open 打开 / Close 熄灭。
+        /// </summary>
+        public async Task<WmsSimpleReturn> PostLed(LEDModel model)
+        {
+            return await PostWmsSimple("WMS/Bqs/LED", model, "PostLed", "LED显示");
+        }
+
+        /// <summary>
+        /// nan_T 2026-10-30：WMS 简单返回（msgType/msgText/WcsId）接口的通用 POST 实现，
+        /// 复用既有 3 次重试、请求/响应落 logs 表、日志落库的方式。
+        /// </summary>
+        private async Task<WmsSimpleReturn> PostWmsSimple(string path, object model, string operation, string message)
+        {
+            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
+            if (!Directory.Exists(logPath))
+            {
+                Directory.CreateDirectory(logPath);
+            }
+
+            void WriteLog(string text, bool isError = false)
+            {
+                try
+                {
+                    string logFilePath = Path.Combine(logPath, operation + "_log.txt");
+                    string logMessage = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {text}{Environment.NewLine}";
+                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
+                    Console.WriteLine(logMessage);
+                }
+                catch (Exception logEx)
+                {
+                    Console.WriteLine($"写入日志失败: {logEx.Message}");
+                }
+            }
+
+            string serviceAddress = wmsapiip.TrimEnd('/') + "/" + path.TrimStart('/');
+            string strJson = JsonConvert.SerializeObject(model);
+            int maxRetries = 3;
+            int retryDelayMs = 10000;
+            int retryCount = 0;
+
+            while (retryCount <= maxRetries)
+            {
+                try
+                {
+                    var httpRequestLog = new LogModel
+                    {
+                        UserType = "http",
+                        LogType = retryCount == 0 ? "HTTP Request" : $"HTTP Request Retry {retryCount}",
+                        Level = "Info",
+                        Message = retryCount == 0 ? $"调用WMS API - {message}" : $"重试调用WMS API - {message} (第{retryCount}次)",
+                        Module = "ToTesApiService",
+                        Operation = operation,
+                        Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{strJson}",
+                        UserId = "System",
+                        IpAddress = "System",
+                        CreateTime = DateTime.UtcNow,
+                        IsArchived = "False"
+                    };
+                    LogsDbContext.Insert(httpRequestLog);
+
+                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(serviceAddress);
+                    request.Method = "POST";
+                    request.ContentType = "application/json";
+                    WriteLog($"请求JSON: {strJson}");
+
+                    using (StreamWriter dataStream = new StreamWriter(request.GetRequestStream()))
+                    {
+                        dataStream.Write(strJson);
+                        dataStream.Close();
+                    }
+
+                    WriteLog("请求发送成功，等待响应...");
+
+                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                    {
+                        string encoding = response.ContentEncoding;
+                        if (string.IsNullOrEmpty(encoding))
+                        {
+                            encoding = "UTF-8";
+                        }
+
+                        WriteLog($"收到响应，状态码: {(int)response.StatusCode} {response.StatusCode}");
+
+                        if ((int)response.StatusCode == 200)
+                        {
+                            using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.GetEncoding(encoding)))
+                            {
+                                string retString = reader.ReadToEnd();
+                                WriteLog($"响应内容: {retString}");
+
+                                var httpResponseLog = new LogModel
+                                {
+                                    UserType = "http",
+                                    LogType = "HTTP Response",
+                                    Level = "Info",
+                                    Message = $"WMS API响应 - {message}",
+                                    Module = "ToTesApiService",
+                                    Operation = operation,
+                                    Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
+                                    UserId = "System",
+                                    IpAddress = "System",
+                                    CreateTime = DateTime.UtcNow,
+                                    IsArchived = "False"
+                                };
+                                LogsDbContext.Insert(httpResponseLog);
+
+                                return JObject.Parse(retString).ToObject<WmsSimpleReturn>();
+                            }
+                        }
+                        else
+                        {
+                            WriteLog($"收到非200状态码: {(int)response.StatusCode}，准备重试", true);
+
+                            if (retryCount >= maxRetries)
+                            {
+                                throw new Exception($"达到最大重试次数({maxRetries})，最后一次状态码: {(int)response.StatusCode}");
+                            }
+
+                            retryCount++;
+                            WriteLog($"第{retryCount}次重试，{retryDelayMs / 1000}秒后执行...");
+                            await Task.Delay(retryDelayMs);
+                        }
+                    }
+                }
+                catch (WebException webEx)
+                {
+                    WriteLog($"网络请求异常: {webEx.Message}", true);
+
+                    if (retryCount >= maxRetries)
+                    {
+                        throw new Exception($"达到最大重试次数({maxRetries})，最后错误: {webEx.Message}");
+                    }
+
+                    retryCount++;
+                    WriteLog($"第{retryCount}次重试，{retryDelayMs / 1000}秒后执行...");
+                    await Task.Delay(retryDelayMs);
+                }
+                catch (Exception ex)
+                {
+                    WriteLog($"发生未预期异常: {ex.Message}", true);
+                    throw;
+                }
+            }
+
             throw new Exception("未知错误：重试逻辑异常");
         }
 

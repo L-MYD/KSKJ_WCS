@@ -47,7 +47,7 @@ namespace WCS_Services
         /// </summary>
         /// <param name="taskId">WMS任务ID</param>
         /// <param name="request">待发送给WMS的请求对象</param>
-        public static void Enqueue(string taskId, UpdateTaskRequest request)
+        public static void Enqueue(string taskId, WCSTaskFinishModel request)
         {
             if (_taskToBatch.TryGetValue(taskId, out var batchId))
             {
@@ -114,6 +114,6 @@ namespace WCS_Services
     public class CallbackItem
     {
         public string TaskId { get; set; }
-        public UpdateTaskRequest Request { get; set; }
+        public WCSTaskFinishModel Request { get; set; }
     }
 }

@@ -69,6 +69,9 @@ namespace WCS_Services
         private int _retryDelaySend = 1000;
         private const int MAX_RETRY_DELAY = 30000;
 
+        // nan_T 2026-10-30：记录上一次已上报的联机状态，用于设备状态变化去重（协议要求触发时调用，不要频繁调用）
+        private bool? _lastDeviceStatuOnline;
+
         public PLCService(string PLCIP)
         {
             _ConveInfo = ConveInfoColleciton.DataList.Find(x => x.PLCIP == PLCIP);
@@ -241,6 +244,39 @@ namespace WCS_Services
             }
         }
 
+        /// <summary>
+        /// nan_T 2026-10-30：设备状态变化时上报 WMS（POST /api/WMS/DeviceStatu）。
+        /// 沿用现有 PLC 连接状态判定逻辑，仅在联机状态发生变化时上报一次，避免频繁调用。
+        /// </summary>
+        private void ReportDeviceStatu(bool online, string errorReason)
+        {
+            if (_lastDeviceStatuOnline.HasValue && _lastDeviceStatuOnline.Value == online)
+                return;
+            _lastDeviceStatuOnline = online;
+
+            string wcsId = $"WCS{DateTimeOffset.Now.ToUnixTimeSeconds()}{Guid.NewGuid().ToString("N").Substring(0, 4)}";
+            DeviceStatuModel model = new DeviceStatuModel
+            {
+                Deviceno = string.IsNullOrEmpty(_ConveSymbol) ? _ConveIP : _ConveSymbol,
+                Statu = online ? "A" : "B",  // A：联机 B：脱机
+                ErrorReason = errorReason ?? "",
+                WcsId = wcsId
+            };
+
+            // 异步上报，避免 HTTP 重试阻塞 PLC 采集循环
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await toTesApiService.PostDeviceStatu(model);
+                }
+                catch (Exception ex)
+                {
+                    SaveErrToText("设备状态上报", ex.Message);
+                }
+            });
+        }
+
         // nan_T 2026-09-09：async void → async Task，异常可被 Task 观测而不是直接崩溃进程
         async Task Recv()
         {
@@ -256,11 +292,14 @@ namespace WCS_Services
                             _isConnected = false;
                             PLCConnState = false;
                         }
+                        ReportDeviceStatu(false, "PLC Ping 失败");
                         await Task.Delay(2000);
                         continue;
                     }
 
-                    if (!EnsureConnection())
+                    bool connected = EnsureConnection();
+                    ReportDeviceStatu(connected, connected ? "" : "PLC连接失败");
+                    if (!connected)
                     {
                         await Task.Delay(_retryDelayRecv);
                         _retryDelayRecv = Math.Min(_retryDelayRecv * 2, MAX_RETRY_DELAY);

@@ -1,4 +1,4 @@
-﻿using WCS_Models.WMSModel;
+using WCS_Models.WMSModel;
 
 namespace WCS_IServices
 {
@@ -9,6 +9,6 @@ namespace WCS_IServices
     public interface IToWmsApiService
     {
         /// <summary>根据 WMS 移动任务模型创建新的移动任务，返回 WCS 处理结果</summary>
-        WcsReturn newMoveTask(newMoveTaskModel model);
+        WcsReturn newMoveTask(WMSTaskDisModel model);
     }
 }

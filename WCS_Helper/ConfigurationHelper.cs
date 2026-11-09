@@ -28,7 +28,7 @@ namespace WCS_Helper
 
         /// <summary>
         /// 获取当前数据库类型枚举，读取配置 ConnectionStrings:DBType。
-        /// 配置缺失或无法识别时，默认返回 PostgreSQL，保证程序可启动。
+        /// 配置缺失或无法识别时，默认返回 MySql，保证程序可启动。
         /// </summary>
         public static DBType GetDBType()
         {
@@ -36,7 +36,7 @@ namespace WCS_Helper
             var raw = _configuration["ConnectionStrings:DBType"];
             if (string.IsNullOrWhiteSpace(raw))
             {
-                return DBType.PostgreSQL;
+                return DBType.MySql;
             }
 
             // 兼容不同写法 / 别名（忽略大小写）
@@ -52,10 +52,10 @@ namespace WCS_Helper
                 case "npgsql":
                     return DBType.PostgreSQL;
                 default:
-                    // 兜底：直接按枚举名称解析，失败再回退 PostgreSQL
+                    // 兜底：直接按枚举名称解析，失败再回退 MySql
                     return Enum.TryParse<DBType>(raw, ignoreCase: true, out var type)
                         ? type
-                        : DBType.PostgreSQL;
+                        : DBType.MySql;
             }
         }
 

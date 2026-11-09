@@ -2,7 +2,6 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
-using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -18,9 +17,7 @@ namespace WCS_Helper.Migrations
 #pragma warning disable 612, 618
             modelBuilder
                 .HasAnnotation("ProductVersion", "8.0.0")
-                .HasAnnotation("Relational:MaxIdentifierLength", 128);
-
-            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+                .HasAnnotation("Relational:MaxIdentifierLength", 64);
 
             modelBuilder.Entity("WCS_Models.LoginViewModel.LoginSqlModel", b =>
                 {
@@ -28,54 +25,128 @@ namespace WCS_Helper.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<string>("IsActive")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<DateTime>("LastLoginTime")
-                        .HasColumnType("datetime2");
+                        .HasColumnType("datetime(6)");
 
                     b.Property<string>("Password")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("RoleId")
                         .HasColumnType("int");
 
                     b.Property<string>("UserName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("UserRole")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
                     b.ToTable("Users", (string)null);
                 });
 
+            modelBuilder.Entity("WCS_Models.PLCModel.ConveInfo", b =>
+                {
+                    b.Property<string>("DataGuid")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<int>("DB4Len")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DB4Num")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DB5Len")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DB5Num")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DB6Len")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DB6Num")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PLCIP")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PLCSymbol")
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("Rack")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RecvState")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SendState")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("int");
+
+                    b.HasKey("DataGuid");
+
+                    b.ToTable("ConveInfo", (string)null);
+                });
+
+            modelBuilder.Entity("WCS_Models.PLCModel.ConveSendMess", b =>
+                {
+                    b.Property<string>("DataGuid")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("CanWrite")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("FromLocation")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("MessType")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PLCIP")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ReasonCode")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("StUintID")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("StUnitHeight")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("StUnitWeight")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ToLocation")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("DataGuid");
+
+                    b.ToTable("ConveSendMess", (string)null);
+                });
+
             modelBuilder.Entity("WCS_Models.PLCModel.ConveVisu", b =>
                 {
                     b.Property<string>("DataGuid")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("DeviceNum")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("IndexNum")
                         .HasColumnType("int");
 
                     b.Property<string>("PLCIP")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Podid")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("StateType")
                         .HasColumnType("int");
@@ -95,54 +166,44 @@ namespace WCS_Helper.Migrations
                         .HasColumnType("int")
                         .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("id"));
-
                     b.Property<DateTime?>("CompletionTime")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("datetime(6)")
                         .HasColumnName("completion_time");
 
                     b.Property<DateTime?>("CreationTime")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("datetime(6)")
                         .HasColumnName("creation_time");
 
                     b.Property<string>("CurrentPosition")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("current_position");
 
                     b.Property<string>("Podid")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("pod_id");
 
                     b.Property<string>("Statu")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("statu");
 
                     b.Property<string>("TargetLocation")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("target_location");
 
                     b.Property<string>("TesTaskID")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("tes_task_id");
 
                     b.Property<string>("WcsId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("wcs_id");
 
                     b.Property<string>("WmsTaskID")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("wms_task_id");
 
                     b.Property<string>("WmsTaskType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("wms_task_type");
 
                     b.HasKey("id");
@@ -156,26 +217,20 @@ namespace WCS_Helper.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<string>("AGVStationCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("OccupyStatus")
                         .HasColumnType("int");
 
                     b.Property<string>("PSStationCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Podid")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("StationName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<int>("StationStatu")
                         .HasColumnType("int");
@@ -191,19 +246,14 @@ namespace WCS_Helper.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<string>("AislesName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("FloorNum")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("WmsReference")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
@@ -216,15 +266,11 @@ namespace WCS_Helper.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<string>("IP")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
@@ -234,7 +280,7 @@ namespace WCS_Helper.Migrations
             modelBuilder.Entity("WCS_Models.WCSModel.EmptyPodIDApply", b =>
                 {
                     b.Property<string>("PodID")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<int>("PodNum")
                         .HasColumnType("int");
@@ -244,6 +290,37 @@ namespace WCS_Helper.Migrations
                     b.ToTable("EmptyPodIDApply", (string)null);
                 });
 
+            modelBuilder.Entity("WCS_Models.WCSModel.ErrorPalletForPLC", b =>
+                {
+                    b.Property<string>("StUintID")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("CanWrite")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("FromLocation")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("MessageType")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ReasonCode")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("StUnitHeight")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("StUnitWeight")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ToLacation")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("StUintID");
+
+                    b.ToTable("ErrorPalletForPLC", (string)null);
+                });
+
             modelBuilder.Entity("WCS_Models.WCSModel.LogModel.LogModel", b =>
                 {
                     b.Property<int>("Id")
@@ -251,60 +328,48 @@ namespace WCS_Helper.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<DateTime>("CreateTime")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("datetime(6)")
                         .HasColumnName("createtime");
 
                     b.Property<string>("Details")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("details");
 
                     b.Property<string>("IpAddress")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("ipaddress");
 
                     b.Property<string>("IsArchived")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("isarchived");
 
                     b.Property<string>("Level")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("level");
 
                     b.Property<string>("LogType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("logtype");
 
                     b.Property<string>("Message")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("message");
 
                     b.Property<string>("Module")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("module");
 
                     b.Property<string>("Operation")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("operation");
 
                     b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("userid");
 
                     b.Property<string>("UserType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("usertype");
 
                     b.HasKey("Id");
@@ -319,18 +384,16 @@ namespace WCS_Helper.Migrations
                         .HasColumnType("int")
                         .HasColumnName("id");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<string>("BizKey")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("bizkey");
 
                     b.Property<DateTime>("CreateTime")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("datetime(6)")
                         .HasColumnName("createtime");
 
                     b.Property<string>("LastError")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("lasterror");
 
                     b.Property<int>("MaxRetry")
@@ -338,15 +401,15 @@ namespace WCS_Helper.Migrations
                         .HasColumnName("maxretry");
 
                     b.Property<string>("MsgType")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("msgtype");
 
                     b.Property<DateTime>("NextRetryTime")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("datetime(6)")
                         .HasColumnName("nextretrytime");
 
                     b.Property<string>("Payload")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("payload");
 
                     b.Property<int>("RetryCount")
@@ -354,8 +417,7 @@ namespace WCS_Helper.Migrations
                         .HasColumnName("retrycount");
 
                     b.Property<string>("Source")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("source");
 
                     b.Property<int>("Status")
@@ -363,11 +425,11 @@ namespace WCS_Helper.Migrations
                         .HasColumnName("status");
 
                     b.Property<string>("TargetUrl")
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("targeturl");
 
                     b.Property<DateTime?>("UpdateTime")
-                        .HasColumnType("datetime2")
+                        .HasColumnType("datetime(6)")
                         .HasColumnName("updatetime");
 
                     b.HasKey("Id");
@@ -378,15 +440,30 @@ namespace WCS_Helper.Migrations
             modelBuilder.Entity("WCS_Models.WCSModel.StationCodeWithNum", b =>
                 {
                     b.Property<string>("code")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<string>("nodes_uni")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("longtext");
 
                     b.HasKey("code");
 
                     b.ToTable("StationCodeWithNum", (string)null);
+                });
+
+            modelBuilder.Entity("WCS_Models.WCSModel.StationNameModel", b =>
+                {
+                    b.Property<string>("WmsStationName")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("TesCheckName")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("TesStationName")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("WmsStationName");
+
+                    b.ToTable("StationName", (string)null);
                 });
 
             modelBuilder.Entity("WCS_Models.WCSModel.Stationstatus", b =>
@@ -397,26 +474,20 @@ namespace WCS_Helper.Migrations
                         .HasColumnName("id")
                         .HasAnnotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn);
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
                     b.Property<string>("StationCode")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("stationcode");
 
                     b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("status");
 
                     b.Property<string>("TesCheckName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("tescheckname");
 
                     b.Property<string>("WmsStationName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)")
+                        .HasColumnType("longtext")
                         .HasColumnName("wmsstationname");
 
                     b.HasKey("Id");
@@ -424,10 +495,29 @@ namespace WCS_Helper.Migrations
                     b.ToTable("stationstatus", (string)null);
                 });
 
+            modelBuilder.Entity("WCS_Models.WCSModel.Storagelocation", b =>
+                {
+                    b.Property<string>("Location")
+                        .HasColumnType("varchar(255)");
+
+                    b.Property<string>("Originalcode")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("PodID")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Wmsreference")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Location");
+
+                    b.ToTable("jx_storagelocation", (string)null);
+                });
+
             modelBuilder.Entity("WCS_Models.WCSModel.WCSAddPodModel", b =>
                 {
                     b.Property<string>("PodID")
-                        .HasColumnType("nvarchar(450)");
+                        .HasColumnType("varchar(255)");
 
                     b.Property<int>("PodHeight")
                         .HasColumnType("int");

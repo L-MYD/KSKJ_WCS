@@ -27,11 +27,18 @@ public class WcsDbContext : DbContext
     public DbSet<LogModel> Logs { get; set; }
     public DbSet<EmptyPodIDApply> EmptyPodIDApply { get; set; }
 
+    // nan_T 2026-11-07：SeverService 中通过 WcsSQLServer 直连的表，统一纳入 EF 管理
+    public DbSet<ConveInfo> ConveInfo { get; set; }
+    public DbSet<ConveSendMess> ConveSendMess { get; set; }
+    public DbSet<ErrorPalletForPLC> ErrorPalletForPLC { get; set; }
+    public DbSet<Storagelocation> Storagelocations { get; set; }
+    public DbSet<StationNameModel> StationNames { get; set; }
+
     // nan_T 2026-09-09：失败消息重发表（PLC 指令 / API 请求 自动重发）
     public DbSet<RetryMessage> RetryMessages { get; set; }
 
-    /// <summary>当前使用的数据库类型（PostgreSQL / SqlServer / MySql），默认 SqlServer</summary>
-    private DBType _dbType = DBType.SqlServer;
+    /// <summary>当前使用的数据库类型（PostgreSQL / SqlServer / MySql），默认 MySql</summary>
+    private DBType _dbType = DBType.MySql;
 
     /// <summary>当前生效的数据库连接字符串</summary>
     private string _connectionString = string.Empty;
@@ -49,7 +56,7 @@ public class WcsDbContext : DbContext
     /// <param name="connectionString">对应数据库的连接字符串</param>
     public WcsDbContext(DBType? dbType, string connectionString)
     {
-        _dbType = dbType ?? DBType.PostgreSQL;
+        _dbType = dbType ?? DBType.MySql;
         _connectionString = connectionString ?? string.Empty;
     }
 
@@ -210,6 +217,37 @@ public class WcsDbContext : DbContext
         {
             entity.ToTable("EmptyPodIDApply");
             entity.HasKey(e => e.PodID); // 假设 id 是主键
+        });
+
+        // nan_T 2026-11-07：SeverService 直连表纳入 EF
+        modelBuilder.Entity<ConveInfo>(entity =>
+        {
+            entity.ToTable("ConveInfo");
+            entity.HasKey(e => e.DataGuid);
+        });
+
+        modelBuilder.Entity<ConveSendMess>(entity =>
+        {
+            entity.ToTable("ConveSendMess");
+            entity.HasKey(e => e.DataGuid);
+        });
+
+        modelBuilder.Entity<ErrorPalletForPLC>(entity =>
+        {
+            entity.ToTable("ErrorPalletForPLC");
+            entity.HasKey(e => e.StUintID); // 集合层以 StUintID 作为查找/删除键
+        });
+
+        modelBuilder.Entity<Storagelocation>(entity =>
+        {
+            entity.ToTable("jx_storagelocation");
+            entity.HasKey(e => e.Location);
+        });
+
+        modelBuilder.Entity<StationNameModel>(entity =>
+        {
+            entity.ToTable("StationName");
+            entity.HasKey(e => e.WmsStationName); // WMS 站点名唯一
         });
     }
 }

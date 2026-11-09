@@ -2,11 +2,11 @@
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
+    <Nullable>disable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <!-- 生成XML文档，供 Swagger 注释使用；忽略缺失XML注释警告 -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);1591</NoWarn>
+    <NoWarn>$(NoWarn);1591;CS8632</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

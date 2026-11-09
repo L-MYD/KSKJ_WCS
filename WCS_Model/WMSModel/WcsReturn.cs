@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
 
 namespace WCS_Models.WMSModel
 {
@@ -23,7 +24,9 @@ namespace WCS_Models.WMSModel
 
         /// <summary>
         /// WMS 流水号（协议规定返回 WmsId）
+        /// nan_T 2026-11-07：显式锁定 JSON 输出名为 WmsId，避免全局 CamelCase 解析器将其转为 wmsId
         /// </summary>
+        [JsonProperty("WmsId")]
         public string WmsId { get; set; }
     }
 }

@@ -34,7 +34,9 @@ namespace WCS_Services
         // nan_T 2026-09-14：WMS 回调基址。数据库可能存尾部带斜杠（如 http://…:5000/），
         // 统一 TrimEnd('/')，避免拼接 "/matrix/sendMsg/…" 时产生双斜杠导致 404
         string wmsapiip = (ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "WMS")?.IP ?? "").TrimEnd('/');
-        static string tesapiip = ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "TES").IP;
+        // nan_T 2026-11-09：TES 接口基址。apiserver 表无 TES 记录时取空串，避免静态字段 NRE 导致整个类型初始化失败；
+        // 各调用点在 tesapiip 为空时返回“TES接口未配置”，不再抛 TypeInitializationException。
+        static string tesapiip = ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "TES")?.IP ?? "";
         /// <summary>
         /// 从 ErrorReason 中提取托盘号（使用正则表达式，支持多种括号格式）
         /// </summary>
@@ -123,6 +125,17 @@ namespace WCS_Services
             string strJson = null;
             try
             {
+                // nan_T 2026-11-09：本地/未配置 TES 时直接返回明确失败，避免 WebRequest 抛出不透明异常
+                if (string.IsNullOrWhiteSpace(tesapiip))
+                {
+                    return new TaskReqsonModel
+                    {
+                        returnCode = -1,
+                        returnMsg = "TES接口地址未配置（apiserver 表无 Name=TES 记录）",
+                        returnUserMsg = "TES接口未配置"
+                    };
+                }
+
                 serviceAddress = tesapiip + "tes/apiv2/newMovePodTask";
 
                 // 记录HTTP请求
@@ -279,11 +292,20 @@ namespace WCS_Services
                 RetryRecorder.EnqueueApi(serviceAddress, strJson, model?.podId, "CreateMoveTask",
                     $"系统异常: {ex.Message}");
 
+                // nan_T 2026-11-09：区分网络不可达（本地环境无 TES）与其它系统异常，给调用方明确信号
+                bool isNetworkError = ex is System.Net.WebException ||
+                                      ex is System.Net.Sockets.SocketException ||
+                                      ex is System.IO.IOException ||
+                                      (ex is HttpRequestException) ||
+                                      ex.Message.Contains("无法连接") || ex.Message.Contains("refused") ||
+                                      ex.Message.Contains("timed out") || ex.Message.Contains("不可达");
+                string userMsg = isNetworkError ? "TES接口不可达" : "系统内部错误";
+
                 return new TaskReqsonModel
                 {
                     returnCode = -1,
                     returnMsg = $"调用CreateMoveTask接口失败: {ex.Message}",
-                    returnUserMsg = "系统内部错误"
+                    returnUserMsg = userMsg
                 };
             }
         }
@@ -523,22 +545,22 @@ namespace WCS_Services
                     WriteLog("=== 处理成功完成 ===");
                 }
             }
-            catch (NullReferenceException nullEx)
+            catch (NullReferenceException)
             {
                 // 异常处理（略，与原代码相同）
                 throw;
             }
-            catch (WebException webEx) when (webEx.Response is HttpWebResponse httpResponse)
+            catch (WebException webEx) when (webEx.Response is HttpWebResponse)
             {
                 // 异常处理（略）
                 throw;
             }
-            catch (JsonException jsonEx)
+            catch (JsonException)
             {
                 // 异常处理（略）
                 throw;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 // 异常处理（略）
                 throw;
@@ -2078,167 +2100,6 @@ namespace WCS_Services
         }
 
         /// <summary>
-        /// 请求母垛出库
-        /// </summary>
-        /// <param name="model"></param>
-        /// <returns></returns>
-        /// <exception cref="Exception"></exception>
-        public async Task<ReturnWcs> PostPalnoApply(UpdateEmptyPallet model)
-        {
-            // 初始化日志路径
-            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-            if (!Directory.Exists(logPath))
-            {
-                Directory.CreateDirectory(logPath);
-            }
-
-            void WriteLog(string message, bool isError = false)
-            {
-                try
-                {
-                    string logFilePath = Path.Combine(logPath, "PostPalnoApply_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
-                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
-                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
-                    Console.WriteLine(logMessage);
-                }
-                catch (Exception logEx)
-                {
-                    Console.WriteLine($"写入日志失败: {logEx.Message}");
-                }
-            }
-
-            // 配置重试参数
-            int maxRetries = 3; // 最大重试次数
-            int retryDelayMs = 10000; // 重试延迟时间（毫秒）
-            int retryCount = 0;
-
-            while (retryCount <= maxRetries)
-            {
-                try
-                {
-                    // 记录HTTP请求 - 完整的请求信息
-                    string serviceAddress = wmsapiip + "/matrix/sendMsg/WWCSAPI/K";
-                    string requestJson = JsonConvert.SerializeObject(model);
-                    var httpRequestLog = new LogModel
-                    {
-                        UserType = "http",
-                        LogType = retryCount == 0 ? "HTTP Request" : $"HTTP Request Retry {retryCount}",
-                        Level = "Info",
-                        Message = retryCount == 0 ? "调用WMS API - 请求母垛出库" : $"重试调用WMS API - 请求母垛出库 (第{retryCount}次)",
-                        Module = "ToTesApiService",
-                        Operation = "PostPalnoApply",
-                        Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
-                        UserId = "System",
-                        IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
-                        IsArchived = "False"
-                    };
-                    LogsDbContext.Insert(httpRequestLog);
-
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(serviceAddress);
-                    request.Method = "POST";
-                    request.ContentType = "application/json";
-                    string strJson = JsonConvert.SerializeObject(model);
-                    WriteLog($"请求JSON: {strJson}");
-
-                    // 写入请求体
-                    using (StreamWriter dataStream = new StreamWriter(request.GetRequestStream()))
-                    {
-                        dataStream.Write(strJson);
-                        dataStream.Close();
-                    }
-
-                    WriteLog("请求发送成功，等待响应...");
-
-                    // 发送请求并获取响应
-                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                    {
-                        string encoding = response.ContentEncoding;
-                        if (string.IsNullOrEmpty(encoding))
-                        {
-                            encoding = "UTF-8"; //默认编码  
-                        }
-
-                        WriteLog($"收到响应，状态码: {(int)response.StatusCode} {response.StatusCode}");
-
-                        if ((int)response.StatusCode == 200)
-                        {
-                            // 读取响应内容
-                            using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.GetEncoding(encoding)))
-                            {
-                                string retString = reader.ReadToEnd();
-                                WriteLog($"响应内容: {retString}");
-
-                                // 记录HTTP响应 - 完整的响应信息
-                                var httpResponseLog = new LogModel
-                                {
-                                    UserType = "http",
-                                    LogType = "HTTP Response",
-                                    Level = "Info",
-                                    Message = "WMS API响应 - 请求母垛出库",
-                                    Module = "ToTesApiService",
-                                    Operation = "PostPalnoApply",
-                                    Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
-                                    UserId = "System",
-                                    IpAddress = "System",
-                                    CreateTime = DateTime.UtcNow,
-                                    IsArchived = "False"
-                                };
-                                LogsDbContext.Insert(httpResponseLog);
-
-                                var result = JObject.Parse(retString).ToObject<ReturnWcs>();
-                                return result;
-                            }
-                        }
-                        else
-                        {
-                            // 非200状态码，准备重试
-                            WriteLog($"收到非200状态码: {(int)response.StatusCode}，准备重试", true);
-
-                            // 如果已达最大重试次数，则抛出异常
-                            if (retryCount >= maxRetries)
-                            {
-                                throw new Exception($"达到最大重试次数({maxRetries})，最后一次状态码: {(int)response.StatusCode}");
-                            }
-
-                            // 等待指定时间后重试
-                            retryCount++;
-                            WriteLog($"第{retryCount}次重试，{retryDelayMs / 1000}秒后执行...");
-                            await Task.Delay(retryDelayMs);
-                        }
-                    }
-                }
-                catch (WebException webEx)
-                {
-                    // 处理网络异常
-                    WriteLog($"网络请求异常: {webEx.Message}", true);
-
-                    // 如果已达最大重试次数，则抛出异常
-                    if (retryCount >= maxRetries)
-                    {
-                        throw new Exception($"达到最大重试次数({maxRetries})，最后错误: {webEx.Message}");
-                    }
-
-                    // 等待指定时间后重试
-                    retryCount++;
-                    WriteLog($"第{retryCount}次重试，{retryDelayMs / 1000}秒后执行...");
-                    await Task.Delay(retryDelayMs);
-                }
-                catch (Exception ex)
-                {
-                    // 其他异常直接抛出
-                    WriteLog($"发生未预期异常: {ex.Message}", true);
-                    throw;
-                }
-            }
-
-            // 理论上不会执行到这里，因为要么成功返回，要么抛出异常
-            throw new Exception("未知错误：重试逻辑异常");
-        }
-
-        /// <summary>
         /// 日志辅助类 - 消除重复的日志代码
         /// </summary>
         public static class LogHelper
@@ -2764,201 +2625,11 @@ namespace WCS_Services
         }
 
         /// <summary>
-        /// 发送站点清除占用给WMS 
-        /// </summary>
-        /// <param name="model"></param>
-        /// <returns></returns>
-        public async Task<ReleaseStationsHttpResqon> PostPalnoRelease(ReleaseStationsHttp model)
-        {
-            // 初始化日志路径
-            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-            if (!Directory.Exists(logPath))
-            {
-                Directory.CreateDirectory(logPath);
-            }
-
-            void WriteLog(string message, bool isError = false)
-            {
-                try
-                {
-                    string logFilePath = Path.Combine(logPath, "PostPalnoRelease_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
-                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
-                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
-                    Console.WriteLine(logMessage);
-                }
-                catch (Exception logEx)
-                {
-                    Console.WriteLine($"写入日志失败: {logEx.Message}");
-                }
-            }
-
-            // 配置重试参数
-            int maxRetries = 3; // 最大重试次数
-            int retryDelayMs = 10000; // 重试延迟时间（毫秒）
-            int retryCount = 0;
-
-            while (retryCount <= maxRetries)
-            {
-                try
-                {
-                    // 记录HTTP请求 - 完整的请求信息
-                    string serviceAddress = wmsapiip + "/api/WMS/PalnoRelease";
-                    string requestJson = JsonConvert.SerializeObject(model);
-                    var httpRequestLog = new LogModel
-                    {
-                        UserType = "http",
-                        LogType = retryCount == 0 ? "HTTP Request" : $"HTTP Request Retry {retryCount}",
-                        Level = "Info",
-                        Message = retryCount == 0 ? "调用WMS API - 发送站点清除占用" : $"重试调用WMS API - 发送站点清除占用 (第{retryCount}次)",
-                        Module = "ToTesApiService",
-                        Operation = "PostPalnoRelease",
-                        Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
-                        UserId = "System",
-                        IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
-                        IsArchived = "False"
-                    };
-                    LogsDbContext.Insert(httpRequestLog);
-
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(serviceAddress);
-                    request.Method = "POST";
-                    request.ContentType = "application/json";
-                    string strJson = JsonConvert.SerializeObject(model);
-                    WriteLog($"请求JSON: {strJson}");
-
-                    // 写入请求体
-                    using (StreamWriter dataStream = new StreamWriter(request.GetRequestStream()))
-                    {
-                        dataStream.Write(strJson);
-                        dataStream.Close();
-                    }
-
-                    WriteLog("请求发送成功，等待响应...");
-
-                    // 发送请求并获取响应
-                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                    {
-                        string encoding = response.ContentEncoding;
-                        if (string.IsNullOrEmpty(encoding))
-                        {
-                            encoding = "UTF-8"; //默认编码  
-                        }
-
-                        WriteLog($"收到响应，状态码: {(int)response.StatusCode} {response.StatusCode}");
-
-                        if ((int)response.StatusCode == 200)
-                        {
-                            // 读取响应内容
-                            using (StreamReader reader = new StreamReader(response.GetResponseStream(), Encoding.GetEncoding(encoding)))
-                            {
-                                string retString = reader.ReadToEnd();
-                                WriteLog($"响应内容: {retString}");
-
-                                // 记录HTTP响应 - 完整的响应信息
-                                var httpResponseLog = new LogModel
-                                {
-                                    UserType = "http",
-                                    LogType = "HTTP Response",
-                                    Level = "Info",
-                                    Message = "WMS API响应 - 发送站点清除占用",
-                                    Module = "ToTesApiService",
-                                    Operation = "PostPalnoRelease",
-                                    Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
-                                    UserId = "System",
-                                    IpAddress = "System",
-                                    CreateTime = DateTime.UtcNow,
-                                    IsArchived = "False"
-                                };
-                                LogsDbContext.Insert(httpResponseLog);
-
-                                var result = JObject.Parse(retString).ToObject<ReleaseStationsHttpResqon>();
-                                return result;
-                            }
-                        }
-                        else
-                        {
-                            // 非200状态码，准备重试
-                            WriteLog($"收到非200状态码: {(int)response.StatusCode}，准备重试", true);
-
-                            // 如果已达最大重试次数，则抛出异常
-                            if (retryCount >= maxRetries)
-                            {
-                                throw new Exception($"达到最大重试次数({maxRetries})，最后一次状态码: {(int)response.StatusCode}");
-                            }
-
-                            // 等待指定时间后重试
-                            retryCount++;
-                            WriteLog($"第{retryCount}次重试，{retryDelayMs / 1000}秒后执行...");
-                            await Task.Delay(retryDelayMs);
-                        }
-                    }
-                }
-                catch (WebException webEx)
-                {
-                    // 处理网络异常
-                    WriteLog($"网络请求异常: {webEx.Message}", true);
-
-                    // 如果已达最大重试次数，则抛出异常
-                    if (retryCount >= maxRetries)
-                    {
-                        throw new Exception($"达到最大重试次数({maxRetries})，最后错误: {webEx.Message}");
-                    }
-
-                    // 等待指定时间后重试
-                    retryCount++;
-                    WriteLog($"第{retryCount}次重试，{retryDelayMs / 1000}秒后执行...");
-                    await Task.Delay(retryDelayMs);
-                }
-                catch (Exception ex)
-                {
-                    // 其他异常直接抛出
-                    WriteLog($"发生未预期异常: {ex.Message}", true);
-                    throw;
-                }
-            }
-
-            // 理论上不会执行到这里，因为要么成功返回，要么抛出异常
-            throw new Exception("未知错误：重试逻辑异常");
-        }
-
-        /// <summary>
         /// 获取站点消息
         /// </summary>
         /// <returns></returns>
         public async Task GetStationMess(MessageType60 model)
         {
-            // 初始化日志路径
-            string logPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Logs");
-            if (!Directory.Exists(logPath))
-            {
-                Directory.CreateDirectory(logPath);
-            }
-
-            void WriteLog(string message, bool isError = false)
-            {
-                try
-                {
-                    string logFilePath = Path.Combine(logPath, "PostPalnoRelease_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
-                    // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
-                    // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
-                    WCS_Helper.LogHelper.Api(logFilePath, logMessage);
-                    Console.WriteLine(logMessage);
-                }
-                catch (Exception logEx)
-                {
-                    Console.WriteLine($"写入日志失败: {logEx.Message}");
-                }
-            }
-            // 或者保留时间戳+Guid
-            string getWCSTaskID()
-            {
-                long timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-                string guidPart = Guid.NewGuid().ToString("N").Substring(0, 4);
-                return $"WCS{timestamp}{guidPart}";
-            }
             if (model.occupyStatus == 3)
             {
                 Stationstatus stationstatus = StationstatusCollection.DataList.FirstOrDefault(x => x.StationCode == model.stationCode);

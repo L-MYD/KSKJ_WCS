@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 
 namespace WCS_Models.CTUModel
@@ -82,7 +82,7 @@ namespace WCS_Models.CTUModel
         /// 动作信息
         /// </summary>
         [Serializable]
-        public class action
+        public class CtuAction
         {
             /// <summary>
             /// 容器编码

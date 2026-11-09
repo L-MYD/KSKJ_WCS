@@ -38,12 +38,6 @@ namespace WCS_IServices
         /// <summary>LED 显示（/WMS/Bqs/LED）</summary>
         Task<WmsSimpleReturn> PostLed(LEDModel model);
 
-        /// <summary>提交空托盘申请</summary>
-        Task<ReturnWcs> PostPalnoApply(UpdateEmptyPallet model);
-
-        /// <summary>提交工位释放请求</summary>
-        Task<ReleaseStationsHttpResqon> PostPalnoRelease(ReleaseStationsHttp model);
-
         /// <summary>处理工位消息（60号报文）</summary>
         Task GetStationMess(MessageType60 model);
     }

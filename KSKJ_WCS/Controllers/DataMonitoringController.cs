@@ -30,7 +30,7 @@ namespace WCS_Api.Controllers
 
         /// <summary>
         /// 分页获取当前任务列表（默认查询当天任务）。
-        /// 示例：GET /api/Data/task?page=1&pageSize=20&status=到达目的地&keyword=WMS001
+        /// 示例：GET /api/Data/task?page=1&amp;pageSize=20&amp;status=到达目的地&amp;keyword=WMS001
         /// </summary>
         /// <param name="taskQueryDto">查询条件（页码、页大小、日期范围、状态、类型、关键词、容器号、位置、排序等）</param>
         /// <returns>分页任务数据：list 当前页数据、total 总数、page/pageSize 分页信息</returns>

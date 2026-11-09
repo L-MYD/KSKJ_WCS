@@ -60,11 +60,6 @@ namespace WCS_Services
         // nan_T 2026-09-09：合并重复字段，原 tesservice 与 toTesApiService 是两个完全相同的实例，统一为一个
         ToTesApiService toTesApiService = new ToTesApiService();
 
-        private static readonly ConcurrentDictionary<string, DateTime> _lastEmptyPalletApplyTime = new ConcurrentDictionary<string, DateTime>();
-        private static readonly ConcurrentDictionary<string, bool> _isApplyingEmptyPallet = new ConcurrentDictionary<string, bool>();
-        private static readonly ConcurrentDictionary<string, object> _stationLocks = new ConcurrentDictionary<string, object>();
-        private const int EMPTY_PALLET_COOLDOWN_SECONDS = 10;
-
         private int _retryDelayRecv = 1000;
         private int _retryDelaySend = 1000;
         private const int MAX_RETRY_DELAY = 30000;
@@ -404,83 +399,6 @@ namespace WCS_Services
                                     // nan_T 2026-09-09：使用合并后的统一服务实例
                                     toTesApiService.setStationStatus(stationStatus);
                                     SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5", $"RF命令：站点{FromLocation}，流向切换成功");
-                                }
-                                else if (MessageType == "SS")
-                                {
-                                    string dpjname = "", stationname = "";
-                                    switch (FromLocation)
-                                    {
-                                        case "6010": dpjname = "DPJ-01"; stationname = "F1-RETURN-01"; break;
-                                        case "6011": dpjname = "DPJ-02"; stationname = "F1-RETURN-02"; break;
-                                        case "6012": dpjname = "DPJ-03"; stationname = "F1-RETURN-03"; break;
-                                        default:
-                                            SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5", $"未知站点 {FromLocation}，忽略SS指令");
-                                            continue;
-                                    }
-
-                                    // 使用站点专属锁，保证检查与设置的原子性
-                                    var lockObj = _stationLocks.GetOrAdd(dpjname, new object());
-                                    bool shouldApply = false;
-
-                                    lock (lockObj)
-                                    {
-                                        // 1. 检查是否存在未完成的叠盘任务（两种状态分别查询）
-                                        var taskPending = TaskDbContext.GetByTesstationCodeTaskTypeAsync(stationname, "FOLD", "待执行");
-                                        var taskRunning = TaskDbContext.GetByTesstationCodeTaskTypeAsync(stationname, "FOLD", "开始执行任务");
-                                        if (taskPending != null || taskRunning != null)
-                                        {
-                                            SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5",
-                                                $"站点 {dpjname} 已有叠盘任务（待执行或执行中），忽略SS");
-                                            continue;   // 离开 lock 块，自动释放锁
-                                        }
-
-                                        // 2. 冷却时间检查
-                                        if (_lastEmptyPalletApplyTime.TryGetValue(dpjname, out DateTime lastTime) &&
-                                            (DateTime.UtcNow - lastTime).TotalSeconds < EMPTY_PALLET_COOLDOWN_SECONDS)
-                                        {
-                                            SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5",
-                                                $"站点 {dpjname} SS指令过于频繁（{EMPTY_PALLET_COOLDOWN_SECONDS}s内），忽略");
-                                            continue;
-                                        }
-
-                                        // 3. 检查是否已有申请进行中
-                                        if (_isApplyingEmptyPallet.TryGetValue(dpjname, out bool applying) && applying)
-                                        {
-                                            SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5",
-                                                $"站点 {dpjname} 已有申请进行中，忽略");
-                                            continue;
-                                        }
-
-                                        // 通过所有检查，更新状态并允许申请
-                                        _isApplyingEmptyPallet[dpjname] = true;
-                                        _lastEmptyPalletApplyTime[dpjname] = DateTime.UtcNow;
-                                        shouldApply = true;
-                                    }
-
-                                    // 执行申请（在锁外进行，避免长时间占用锁）
-                                    if (shouldApply)
-                                    {
-                                        try
-                                        {
-                                            UpdateEmptyPallet emptyPallet = new UpdateEmptyPallet();
-                                            UpdateEmptyPalletData emptyPalletData = new UpdateEmptyPalletData();
-                                            emptyPalletData.carrierLoc = dpjname;
-                                            emptyPallet.strInMsg = JsonConvert.SerializeObject(emptyPalletData);
-                                            toTesApiService.PostPalnoApply(emptyPallet);
-                                            SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5",
-                                                $"SS命令：站点{dpjname}，申请空托盘垛成功");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            SaveLogText($"{_ConveInfo.PLCSymbol}:Recv—DB5",
-                                                $"站点 {dpjname} 申请异常: {ex.Message}");
-                                        }
-                                        finally
-                                        {
-                                            // 释放申请中标记
-                                            _isApplyingEmptyPallet[dpjname] = false;
-                                        }
-                                    }
                                 }
                                 #endregion
                             }

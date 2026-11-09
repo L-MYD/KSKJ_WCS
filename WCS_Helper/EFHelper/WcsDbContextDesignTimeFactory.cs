@@ -78,20 +78,20 @@ namespace WCS_Helper
         }
 
         /// <summary>
-        /// nan_T 2026-09-09：解析数据库类型字符串为枚举（与 ConfigurationHelper 口径一致，默认 PostgreSQL）。
+        /// nan_T 2026-09-09：解析数据库类型字符串为枚举（与 ConfigurationHelper 口径一致，默认 MySql）。
         /// </summary>
         private static DBType ParseDbType(string? raw)
         {
             if (string.IsNullOrWhiteSpace(raw))
             {
-                return DBType.PostgreSQL;
+                return DBType.MySql;
             }
 
             return raw.Trim().ToLowerInvariant() switch
             {
                 "sqlserver" or "mssql" => DBType.SqlServer,
                 "mysql" => DBType.MySql,
-                _ => DBType.PostgreSQL
+                _ => DBType.MySql
             };
         }
     }

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data;
-using System.Data.SqlClient;
+using System.Data.Common;
+using Microsoft.Data.SqlClient;
+using MySqlConnector;
 using System.IO;
 using System.Linq;
 
@@ -529,13 +531,6 @@ using System.Linq;
 //    }
 //}
 
-using System.Data.SqlClient;
-using System;
-using System.Collections.Generic;
-using System.Data;
-using System.IO;
-using System.Linq;
-
 namespace WCS_Helper
 {
     /// <summary>
@@ -543,7 +538,22 @@ namespace WCS_Helper
     /// </summary>
     public static class WcsSQLServer
     {
-        private static readonly string SqlConn = ConfigurationHelper.GetConnectionString(); // nan_T 2026-09-14：获取 SQL Server 连接字符串（DBType=SqlServer 时取 SqlServerConnection）
+        // nan_T 2026-11-09：连接串由 ConfigurationHelper 按 DBType 自动选择（MySql/SqlServer/PostgreSQL）
+        private static readonly string SqlConn = ConfigurationHelper.GetConnectionString();
+
+        /// <summary>
+        /// nan_T 2026-11-09：按当前 DBType 创建对应的 DbConnection，使本类同时兼容 SQL Server / MySQL。
+        /// 调用方只需使用 DbConnection / DbCommand 基类，无需关心底层驱动。
+        /// </summary>
+        private static DbConnection CreateConnection()
+        {
+            return ConfigurationHelper.GetDBType() switch
+            {
+                WCS_Common.Enums.DBType.MySql => new MySqlConnection(SqlConn),
+                WCS_Common.Enums.DBType.SqlServer => new SqlConnection(SqlConn),
+                _ => new MySqlConnection(SqlConn) // 默认走 MySQL
+            };
+        }
 
         /// <summary>
         /// 执行查询，返回是否有结果
@@ -552,16 +562,14 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new SqlConnection(SqlConn))
+                using (var connection = CreateConnection())
                 {
-                    var adapter = new SqlDataAdapter
-                    {
-                        SelectCommand = new SqlCommand(queryString, connection)
-                    };
-
+                    using var command = connection.CreateCommand();
+                    command.CommandText = queryString;
+                    connection.Open();
+                    using var reader = command.ExecuteReader();
                     var dataTable = new DataTable();
-                    adapter.Fill(dataTable);
-
+                    dataTable.Load(reader);
                     return dataTable.Rows.Count != 0;
                 }
             }
@@ -579,13 +587,11 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new SqlConnection(SqlConn))
+                using (var connection = CreateConnection())
                 {
-                    var comm = new SqlCommand(sprocName, connection)
-                    {
-                        CommandType = CommandType.StoredProcedure
-                    };
-
+                    using var comm = connection.CreateCommand();
+                    comm.CommandText = sprocName;
+                    comm.CommandType = CommandType.StoredProcedure;
                     connection.Open();
                     comm.ExecuteNonQuery();
                 }
@@ -603,15 +609,14 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new SqlConnection(SqlConn))
+                using (var connection = CreateConnection())
                 {
-                    var adapter = new SqlDataAdapter
-                    {
-                        SelectCommand = new SqlCommand(queryString, connection)
-                    };
+                    using var command = connection.CreateCommand();
+                    command.CommandText = queryString;
+                    connection.Open();
+                    using var reader = command.ExecuteReader();
                     var dataTable = new DataTable();
-                    adapter.Fill(dataTable);
-
+                    dataTable.Load(reader);
                     return dataTable;
                 }
             }
@@ -629,14 +634,14 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new SqlConnection(SqlConn))
+                using (var connection = CreateConnection())
                 {
-                    var adapter = new SqlDataAdapter
-                    {
-                        SelectCommand = new SqlCommand(queryString, connection)
-                    };
+                    using var command = connection.CreateCommand();
+                    command.CommandText = queryString;
+                    connection.Open();
+                    using var reader = command.ExecuteReader();
                     var dataTable = new DataTable();
-                    adapter.Fill(dataTable);
+                    dataTable.Load(reader);
 
                     if (dataTable != null && dataTable.Rows.Count > 0)
                     {
@@ -697,14 +702,14 @@ namespace WCS_Helper
 
             try
             {
-                using (var connection = new SqlConnection(SqlConn))
+                using (var connection = CreateConnection())
                 {
-                    var adapter = new SqlDataAdapter
-                    {
-                        SelectCommand = new SqlCommand(queryString, connection)
-                    };
+                    using var command = connection.CreateCommand();
+                    command.CommandText = queryString;
+                    connection.Open();
+                    using var reader = command.ExecuteReader();
                     var dataTable = new DataTable();
-                    adapter.Fill(dataTable);
+                    dataTable.Load(reader);
 
                     return dataTable.Rows.Count > 0 ? ConvertToModel<T>(dataTable) : new List<T>();
                 }
@@ -723,14 +728,14 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new SqlConnection(SqlConn))
+                using (var connection = CreateConnection())
                 {
-                    var adapter = new SqlDataAdapter
-                    {
-                        SelectCommand = new SqlCommand(queryString, connection)
-                    };
+                    using var command = connection.CreateCommand();
+                    command.CommandText = queryString;
+                    connection.Open();
+                    using var reader = command.ExecuteReader();
                     var dataTable = new DataTable();
-                    adapter.Fill(dataTable);
+                    dataTable.Load(reader);
 
                     return dataTable.Rows.Count > 0 ? ConvertToModel<T>(dataTable) : new List<T>();
                 }
@@ -892,10 +897,11 @@ namespace WCS_Helper
         {
             try
             {
-                using (var connection = new SqlConnection(SqlConn))
+                using (var connection = CreateConnection())
                 {
-                    var command = new SqlCommand(queryString, connection);
-                    command.Connection.Open();
+                    using var command = connection.CreateCommand();
+                    command.CommandText = queryString;
+                    connection.Open();
                     return command.ExecuteNonQuery();
                 }
             }

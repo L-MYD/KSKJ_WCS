@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using System;
 using WCS_Models;
 using Newtonsoft.Json;
@@ -88,7 +88,7 @@ namespace WCS_Api.Controllers
         /// <summary>
         /// 托盘线站点外检消息messageType=50
         /// </summary>
-        /// <param name="json"></param>
+        /// <param name="jsonInput"></param>
         /// <returns></returns>
         [HttpPost("GetMessageType50")]
         public async Task<IActionResult> GetMessageType50([FromBody] JObject jsonInput)
@@ -236,7 +236,7 @@ namespace WCS_Api.Controllers
         /// <summary>
         /// 站点流向消息messageType=61
         /// </summary>
-        /// <param name="json"></param>
+        /// <param name="jsonInput"></param>
         /// <returns></returns>
         [HttpPost("GetMessageType61")]
         public async Task<IActionResult> GetMessageType61([FromBody] JObject jsonInput)

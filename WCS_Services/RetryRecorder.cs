@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using WCS_Helper;
 using WCS_Models.WCSModel;
+using WCS_Common.Helper;
 
 namespace WCS_Services
 {
@@ -52,7 +53,7 @@ namespace WCS_Services
                 Payload = payloadJson,
                 BizKey = bizKey,
                 LastError = lastError,
-                NextRetryTime = DateTime.UtcNow.AddSeconds(30) // nan_T 2026-09-09：首次重发延迟 30 秒
+                NextRetryTime = DateTimeHelper.CnNow.AddSeconds(30) // nan_T 2026-09-09：首次重发延迟 30 秒
             });
         }
 
@@ -72,7 +73,7 @@ namespace WCS_Services
                 Payload = payloadJson,
                 BizKey = bizKey,
                 LastError = lastError,
-                NextRetryTime = DateTime.UtcNow.AddSeconds(15) // nan_T 2026-09-09：PLC 指令首次重发延迟 15 秒
+                NextRetryTime = DateTimeHelper.CnNow.AddSeconds(15) // nan_T 2026-09-09：PLC 指令首次重发延迟 15 秒
             });
         }
 

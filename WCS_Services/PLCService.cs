@@ -17,6 +17,7 @@ using WCS_Common;
 using WCS_Models;
 using System.Collections.Concurrent;
 using WCS_Helper.Mapper;
+using WCS_Common.Helper;
 
 using WCS_IServices;
 namespace WCS_Services
@@ -572,7 +573,7 @@ namespace WCS_Services
                                                 SaveLogText(MessDesc, "SEND");
                                                 try
                                                 {
-                                                    _ConveEvent.OnShowSend(new ConveMessageEventArgs(_ConveIP + "=>  [" + MessDesc + "]      " + DateTime.UtcNow.ToString()));
+                                                    _ConveEvent.OnShowSend(new ConveMessageEventArgs(_ConveIP + "=>  [" + MessDesc + "]      " + DateTimeHelper.CnNow.ToString()));
                                                 }
                                                 catch { }
                                             }
@@ -765,7 +766,7 @@ namespace WCS_Services
         void SaveLogText(string Detail, string MessType)
         {
             // nan_T 2026-09-09：把原 txt 行内容（MessType=>Detail 时间）完整放进 message，便于在库中检索
-            LogHelper.Plc(MessType, $"{MessType}=>{Detail} [{_ConveSymbol}] {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
+            LogHelper.Plc(MessType, $"{MessType}=>{Detail} [{_ConveSymbol}] {DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss}");
         }
 
         string getWMSTaskID()

@@ -4,6 +4,7 @@ using Newtonsoft.Json;
 using System.Net.Http;
 using System.Text;
 using WCS_Common.Enums;
+using WCS_Common.Helper;
 using WCS_Helper;
 using WCS_Helper.Database;
 using WCS_IServices;
@@ -50,7 +51,7 @@ namespace WCS_Services
 
             // nan_T 2026-09-09：取“待发送 且 到了下次重发时间”的记录，按入队先后处理
             var pending = await context.RetryMessages
-                .Where(m => m.Status == 0 && m.NextRetryTime <= DateTime.UtcNow)
+                .Where(m => m.Status == 0 && m.NextRetryTime <= DateTimeHelper.CnNow)
                 .OrderBy(m => m.NextRetryTime)
                 .Take(batchSize)
                 .ToListAsync();
@@ -85,7 +86,7 @@ namespace WCS_Services
                 }
 
                 message.RetryCount++;
-                message.UpdateTime = DateTime.UtcNow;
+                message.UpdateTime = DateTimeHelper.CnNow;
 
                 if (success)
                 {
@@ -112,7 +113,7 @@ namespace WCS_Services
                     {
                         // 指数退避：30s * 2^(已重试次数-1)，上限 30 分钟
                         int backoff = Math.Min(30 * (int)Math.Pow(2, message.RetryCount - 1), MaxBackoffSeconds);
-                        message.NextRetryTime = DateTime.UtcNow.AddSeconds(backoff);
+                        message.NextRetryTime = DateTimeHelper.CnNow.AddSeconds(backoff);
                         LogResendFail(message, error, backoff);
                         _logger.LogWarning("重发失败将在 {Backoff}s 后重试：{Source} {MsgType} Id={Id} 第{Count}次 原因={Error}",
                             backoff, message.Source, message.MsgType, message.Id, message.RetryCount, error);

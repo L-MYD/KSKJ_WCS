@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using WCS_Common.Enums;
+using WCS_Common.Helper;
 using WCS_Helper.Database;
 using WCS_Models.WCSModel.LogModel;
 
@@ -36,7 +37,7 @@ namespace WCS_Services
         {
             try
             {
-                log.CreateTime = DateTime.UtcNow;
+                log.CreateTime = DateTimeHelper.CnNow;
                 if (string.IsNullOrEmpty(log.IsArchived))
                 {
                     log.IsArchived = "False";
@@ -68,7 +69,7 @@ namespace WCS_Services
                 Details = Details,
                 UserId = UserId,
                 IpAddress = GetLocalIpAddress(),
-                CreateTime = DateTime.UtcNow
+                CreateTime = DateTimeHelper.CnNow
             };
 
             return InsertLog(log);
@@ -89,7 +90,7 @@ namespace WCS_Services
                 Details = Details,
                 UserId = UserId,
                 IpAddress = GetClientIpAddress(),
-                CreateTime = DateTime.UtcNow
+                CreateTime = DateTimeHelper.CnNow
             };
 
             return InsertLog(log);
@@ -111,7 +112,7 @@ namespace WCS_Services
                 Details = Details,
                 UserId = "plc",
                 IpAddress = GetLocalIpAddress(),
-                CreateTime = DateTime.UtcNow
+                CreateTime = DateTimeHelper.CnNow
             };
 
             return InsertLog(log);
@@ -131,7 +132,7 @@ namespace WCS_Services
                 Details = Details,
                 UserId = UserId,
                 IpAddress = GetClientIpAddress(),
-                CreateTime = DateTime.UtcNow
+                CreateTime = DateTimeHelper.CnNow
             };
 
             return InsertLog(log);
@@ -151,7 +152,7 @@ namespace WCS_Services
                 Details = Details,
                 UserId = UserId,
                 IpAddress = GetLocalIpAddress(),
-                CreateTime = DateTime.UtcNow
+                CreateTime = DateTimeHelper.CnNow
             };
 
             return InsertLog(log);
@@ -171,7 +172,7 @@ namespace WCS_Services
                 Details = Details,
                 UserId = UserId,
                 IpAddress = GetLocalIpAddress(),
-                CreateTime = DateTime.UtcNow
+                CreateTime = DateTimeHelper.CnNow
             };
 
             return InsertLog(log);
@@ -191,7 +192,7 @@ namespace WCS_Services
                 Details = Details,
                 UserId = UserId,
                 IpAddress = ipAddress ?? GetLocalIpAddress(),
-                CreateTime = DateTime.UtcNow
+                CreateTime = DateTimeHelper.CnNow
             };
 
             return InsertLog(log);

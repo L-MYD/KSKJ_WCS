@@ -4,6 +4,7 @@ using System.Threading;
 using System.Collections.Concurrent;
 using WCS_Helper.Mapper;
 using WCS_Models.WCSModel.LogModel;
+using WCS_Common.Helper;
 
 namespace WCS_Helper
 {
@@ -200,7 +201,7 @@ namespace WCS_Helper
 
             var logEntry = new LogEntry
             {
-                Timestamp = DateTime.UtcNow,
+                Timestamp = DateTimeHelper.CnNow,
                 Module = module,
                 Operation = operation,
                 Message = message,
@@ -422,7 +423,7 @@ namespace WCS_Helper
                 }
 
                 // 重命名当前文件
-                string timestamp = DateTime.UtcNow.ToString("yyyyMMdd_HHmmss");
+                string timestamp = DateTimeHelper.CnNow.ToString("yyyyMMdd_HHmmss");
                 string newPath = Path.Combine(directory, $"{fileName}.{timestamp}{extension}");
                 File.Move(logPath, newPath);
             }

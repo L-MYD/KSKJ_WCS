@@ -1,4 +1,4 @@
-﻿using WCS_Models;
+using WCS_Models;
 using WCS_Models.PLCModel;
 using WCS_Models.SqlModel;
 using WCS_Models.TESModel;
@@ -13,6 +13,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using WCS_Common.Helper;
 using WCS_Helper;
 using WCS_Models.WMSModel;
 
@@ -182,7 +183,7 @@ namespace WCS_Services
         //            Details = $"数据列表表名: {TableName}\n插入数据: {JsonConvert.SerializeObject(SendMess)}",
         //            UserId = "System",
         //            IpAddress = "System",
-        //            CreateTime = DateTime.UtcNow,
+        //            CreateTime = DateTimeHelper.CnNow,
         //            IsArchived = "False"
         //        };
         //        LogsDbContext.Insert(startLog);
@@ -224,7 +225,7 @@ namespace WCS_Services
                         Details = $"异常详情: {ex}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(errorLog);
@@ -485,7 +486,7 @@ namespace WCS_Services
         public static void ClearLog()
         {
             var DataList = WcsSQLServer.SelectContent<LogModel>(TableName);
-            var LogList = DataList.FindAll(x => (DateTime.UtcNow - Convert.ToDateTime(x.CreateTime)).Days > 30);
+            var LogList = DataList.FindAll(x => (DateTimeHelper.CnNow - Convert.ToDateTime(x.CreateTime)).Days > 30);
 
             if (LogList.Any())
             {
@@ -511,7 +512,7 @@ namespace WCS_Services
         public static void ClearLog()
         {
             var DataList = WcsSQLServer.SelectContent<TescorrespondsWms>(TableName);
-            var LogList = DataList.FindAll(x => (DateTime.UtcNow - Convert.ToDateTime(x.CreationTime)).Days > 30);
+            var LogList = DataList.FindAll(x => (DateTimeHelper.CnNow - Convert.ToDateTime(x.CreationTime)).Days > 30);
 
             if (LogList.Any())
             {

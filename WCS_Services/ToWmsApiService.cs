@@ -11,6 +11,7 @@ using WCS_Models.TESModel;
 using WCS_Models.WCSModel.LogModel;
 using WCS_Models.WCSModel;
 using WCS_Models.WMSModel;
+using WCS_Common.Helper;
 
 using WCS_IServices;
 namespace WCS_Services
@@ -34,7 +35,7 @@ namespace WCS_Services
                 Details = $"任务参数: {JsonConvert.SerializeObject(model)}",
                 UserId = "System",
                 IpAddress = "System",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = DateTimeHelper.CnNow,
                 IsArchived = "False"
             };
             LogsDbContext.Insert(startLog);
@@ -198,8 +199,8 @@ namespace WCS_Services
                         WmsTaskType = GetTaskTypeName(model.TaskType),
                         CurrentPosition = fromlococation,
                         Statu = "待执行",
-                        CreationTime = DateTime.UtcNow,
-                        CompletionTime = DateTime.UtcNow,
+                        CreationTime = DateTimeHelper.CnNow,
+                        CompletionTime = DateTimeHelper.CnNow,
                         TargetLocation = tolococation,
                         Podid = model.Palno,
                         WcsId = wcsId,
@@ -231,7 +232,7 @@ namespace WCS_Services
                         Details = $"任务ID: {model.WmsId}, 容器号: {model.Palno}, 数据库插入结果: {reinsert}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(successLog);
@@ -254,7 +255,7 @@ namespace WCS_Services
                         Details = $"任务ID: {model.WmsId}, 容器号: {model.Palno}, 错误信息: {trm?.returnUserMsg}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(failureLog);

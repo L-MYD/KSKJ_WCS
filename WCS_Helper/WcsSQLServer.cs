@@ -7,6 +7,7 @@ using Microsoft.Data.SqlClient;
 using MySqlConnector;
 using System.IO;
 using System.Linq;
+using WCS_Common.Helper;
 
 //namespace WCS_Helper
 //{
@@ -469,7 +470,7 @@ using System.Linq;
 //        public static void SaveErrToText(string Detail, string reason)
 //        {
 //            const string FilePath = @"C:\WCSErrLog";
-//            var FileName = DateTime.UtcNow.ToString("yyyyMMdd");
+//            var FileName = DateTimeHelper.CnNow.ToString("yyyyMMdd");
 
 //            StreamWriter sw = null;
 //            FileStream fs = null;
@@ -495,7 +496,7 @@ using System.Linq;
 
 //                sw = File.AppendText(Path);
 //                var AddTxt =
-//                    $"DealMessage:{Detail} \n Reason:{reason} \n Datetime:{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss} \n";
+//                    $"DealMessage:{Detail} \n Reason:{reason} \n Datetime:{DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss} \n";
 
 //                sw.Write(AddTxt);
 //                sw.Close();
@@ -920,7 +921,7 @@ namespace WCS_Helper
         {
             try
             {
-                LogHelper.Error("SQLServer", detail, reason, details: $"DealMessage:{detail} | Reason:{reason} | Datetime:{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}");
+                LogHelper.Error("SQLServer", detail, reason, details: $"DealMessage:{detail} | Reason:{reason} | Datetime:{DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss}");
             }
             catch (Exception ex)
             {

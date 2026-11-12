@@ -53,7 +53,7 @@ namespace WCS_Models.WCSModel
 
         /// <summary>下次允许重发的时间（指数退避后计算）</summary>
         [Column("nextretrytime")]
-        public DateTime NextRetryTime { get; set; } = DateTime.UtcNow;
+        public DateTime NextRetryTime { get; set; } = DateTime.Now;
 
         /// <summary>最近一次失败原因（重发成功后置为 null）</summary>
         [Column("lasterror")]
@@ -61,7 +61,7 @@ namespace WCS_Models.WCSModel
 
         /// <summary>首次入库时间</summary>
         [Column("createtime")]
-        public DateTime CreateTime { get; set; } = DateTime.UtcNow;
+        public DateTime CreateTime { get; set; } = DateTime.Now;
 
         /// <summary>最近一次更新时间</summary>
         [Column("updatetime")]

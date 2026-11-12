@@ -83,7 +83,7 @@ namespace WCS_Api.Controllers
                 new(ClaimTypes.Name, user.UserName),
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new(ClaimTypes.Role, user.UserRole ?? "User"),
-                new("LoginTime", DateTime.UtcNow.ToString())
+                new("LoginTime", DateTimeHelper.CnNow.ToString())
             };
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
 

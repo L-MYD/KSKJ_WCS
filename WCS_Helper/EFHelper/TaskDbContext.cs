@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -10,6 +10,7 @@ using WCS_Models.SqlModel;
 using WCS_Models.WCSModel;
 using WCS_Models.WCSModel.LogModel;
 using WCS_Models.WMSModel;
+using WCS_Common.Helper;
 
 
 namespace WCS_Helper.Mapper
@@ -752,7 +753,7 @@ namespace WCS_Helper.Mapper
                 if (taskQueryDto.exceptionType == "超时任务")
                 {
                     // 计算 30 分钟前的时间点
-                    var cutoffTime = DateTime.UtcNow.AddMinutes(-30);
+                    var cutoffTime = DateTimeHelper.CnNow.AddMinutes(-30);
                     var completedStatuses = new[] { "到达目的地", "拆膜完成", "异常处理完成" };
 
                     query = query.Where(t => !completedStatuses.Contains(t.Statu)
@@ -970,7 +971,7 @@ namespace WCS_Helper.Mapper
                 Details = $"{details}\n异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                 UserId = "System",
                 IpAddress = "System",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = DateTimeHelper.CnNow,
                 IsArchived = "False"
             };
             LogsDbContext.Insert(errorLog);
@@ -989,7 +990,7 @@ namespace WCS_Helper.Mapper
                 Details = details,
                 UserId = "System",
                 IpAddress = "System",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = DateTimeHelper.CnNow,
                 IsArchived = "False"
             };
             LogsDbContext.Insert(infoLog);

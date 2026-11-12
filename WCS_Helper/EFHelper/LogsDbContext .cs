@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks;
 using WCS_Helper;
 using WCS_Models.WCSModel.LogModel;
+using WCS_Common.Helper;
 
 public static class LogsDbContext
 {
@@ -46,7 +47,7 @@ public static class LogsDbContext
                 Details = reason,
                 UserId = "System",
                 IpAddress = "127.0.0.1",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = DateTimeHelper.CnNow,
                 IsArchived = "False"
             };
 
@@ -69,7 +70,7 @@ public static class LogsDbContext
         try
         {
             // 强制使用 UTC 时间，避免时区问题
-            log.CreateTime = DateTime.UtcNow;
+            log.CreateTime = DateTimeHelper.CnNow;
             using var context = CreateDbContext();
             context.Logs.Add(log);
             int result = context.SaveChanges();
@@ -327,7 +328,7 @@ public static class Logger
                 Details = reason,
                 UserId = "System",
                 IpAddress = "127.0.0.1",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = DateTimeHelper.CnNow,
                 IsArchived = "False"
             };
             LogsDbContext.Insert(log);

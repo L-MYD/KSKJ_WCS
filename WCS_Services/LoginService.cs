@@ -73,7 +73,7 @@ namespace WCS_Services
             // 5. 登录成功后的写操作：更新最后登录时间；旧明文密码顺带升级为哈希
             using var writeContext = _contextFactory.CreateContext(WriteRoRead.Write);
             var tracked = await writeContext.Users.FirstAsync(u => u.Id == user.Id);
-            tracked.LastLoginTime = DateTime.UtcNow;
+            tracked.LastLoginTime = DateTimeHelper.CnNow;
 
             if (verifyResult.needsUpgrade)
             {
@@ -128,7 +128,7 @@ namespace WCS_Services
             user.IsActive = string.IsNullOrEmpty(user.IsActive) ? "1" : user.IsActive;
             user.UserRole = string.IsNullOrEmpty(user.UserRole) ? "2" : user.UserRole;
             user.RoleId = MapRoleId(user.UserRole);
-            user.LastLoginTime = DateTime.UtcNow;
+            user.LastLoginTime = DateTimeHelper.CnNow;
 
             // nan_T 2026-09-09：明文密码先哈希再落库，数据库不保存明文
             user.Password = PasswordHasher.Hash(user.Password);

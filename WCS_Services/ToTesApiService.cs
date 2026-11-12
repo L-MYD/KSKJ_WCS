@@ -21,6 +21,7 @@ using System.Collections;
 using WCS_Models.PLCModel;
 using WCS_Models.WCSModel;
 using WCS_Models.WCSModel.LogModel;
+using WCS_Common.Helper;
 using System.Security.Cryptography;
 //using S7.Net;
 using System.Text.RegularExpressions;
@@ -164,7 +165,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -205,7 +206,7 @@ namespace WCS_Services
                     Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpResponseLog);
@@ -228,7 +229,7 @@ namespace WCS_Services
                     Details = $"异常信息: {webEx.Message}\n堆栈跟踪: {webEx.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -253,7 +254,7 @@ namespace WCS_Services
                     Details = $"HTTP状态码: {(int)httpResponse.StatusCode}\n错误响应内容: {errorContent}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorResponseLog);
@@ -283,7 +284,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -404,7 +405,7 @@ namespace WCS_Services
                             {
                                 TesTaskID = content.TaskID.ToString(),
                                 Statu = trw.Statu,
-                                CompletionTime = DateTime.UtcNow,
+                                CompletionTime = DateTimeHelper.CnNow,
                                 TargetLocation = trw.TargetLocation,
                                 WcsId = trw.WcsId
                             });
@@ -458,7 +459,7 @@ namespace WCS_Services
                             {
                                 TesTaskID = trm.data.taskID.ToString(),
                                 Statu = trw.Statu,
-                                CompletionTime = DateTime.UtcNow,
+                                CompletionTime = DateTimeHelper.CnNow,
                                 TargetLocation = tesmodel.desPosition,
                                 WcsId = trw.WcsId
                             };
@@ -478,7 +479,7 @@ namespace WCS_Services
                     {
                         TesTaskID = content.TaskID.ToString(),
                         Statu = trw.Statu,
-                        CompletionTime = DateTime.UtcNow,
+                        CompletionTime = DateTimeHelper.CnNow,
                         TargetLocation = trw.TargetLocation,
                         WcsId = trw.WcsId
                     };
@@ -592,7 +593,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -632,7 +633,7 @@ namespace WCS_Services
                     Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpResponseLog);
@@ -654,7 +655,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -695,7 +696,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -737,7 +738,7 @@ namespace WCS_Services
                             Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpResponseLog);
@@ -762,7 +763,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -787,7 +788,7 @@ namespace WCS_Services
                             Details = $"HTTP状态码: {(int)errorResponse.StatusCode}\n错误响应内容: {errorContent}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(errorResponseLog);
@@ -832,7 +833,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -875,7 +876,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -917,7 +918,7 @@ namespace WCS_Services
                             Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpResponseLog);
@@ -943,7 +944,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -968,7 +969,7 @@ namespace WCS_Services
                             Details = $"HTTP状态码: {(int)errorResponse.StatusCode}\n错误响应内容: {errorContent}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(errorResponseLog);
@@ -1003,7 +1004,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -1042,7 +1043,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -1084,7 +1085,7 @@ namespace WCS_Services
                             Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpResponseLog);
@@ -1110,7 +1111,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -1135,7 +1136,7 @@ namespace WCS_Services
                             Details = $"HTTP状态码: {(int)errorResponse.StatusCode}\n错误响应内容: {errorContent}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(errorResponseLog);
@@ -1170,7 +1171,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -1207,7 +1208,7 @@ namespace WCS_Services
                 try
                 {
                     string logFilePath = Path.Combine(logPath, "receiveTaskPallent_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
+                    string logMessage = $"[{DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
                     // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
                     // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
                     WCS_Helper.LogHelper.Api(logFilePath, logMessage);
@@ -1301,7 +1302,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -1367,7 +1368,7 @@ namespace WCS_Services
                 try
                 {
                     string logFilePath = Path.Combine(logPath, "UpdateStationOperation_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
+                    string logMessage = $"[{DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
                     // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
                     // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
                     WCS_Helper.LogHelper.Api(logFilePath, logMessage);
@@ -1392,7 +1393,7 @@ namespace WCS_Services
                 Details = $"消息接口: GetMessageType61\n完整请求参数JSON:\n{requestJson}",
                 UserId = "System",
                 IpAddress = "System",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = DateTimeHelper.CnNow,
                 IsArchived = "False"
             };
             LogsDbContext.Insert(httpRequestLog);
@@ -1477,7 +1478,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -1521,7 +1522,7 @@ namespace WCS_Services
                                 Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                                 UserId = "System",
                                 IpAddress = "System",
-                                CreateTime = DateTime.UtcNow,
+                                CreateTime = DateTimeHelper.CnNow,
                                 IsArchived = "False"
                             };
                             LogsDbContext.Insert(httpResponseLog);
@@ -1553,7 +1554,7 @@ namespace WCS_Services
                         Details = $"异常信息: {webEx.Message}\n堆栈跟踪: {webEx.StackTrace}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(errorLog);
@@ -1578,7 +1579,7 @@ namespace WCS_Services
                         Details = $"HTTP状态码: {(int)httpResponse.StatusCode}\n错误响应内容: {errorContent}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(errorResponseLog);
@@ -1605,7 +1606,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -1639,7 +1640,7 @@ namespace WCS_Services
                 try
                 {
                     string logFilePath = Path.Combine(logPath, "GetWmsreceiveTask_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
+                    string logMessage = $"[{DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
                     // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
                     // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
                     WCS_Helper.LogHelper.Api(logFilePath, logMessage);
@@ -1674,7 +1675,7 @@ namespace WCS_Services
                         Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(httpRequestLog);
@@ -1725,7 +1726,7 @@ namespace WCS_Services
                                     Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                                     UserId = "System",
                                     IpAddress = "System",
-                                    CreateTime = DateTime.UtcNow,
+                                    CreateTime = DateTimeHelper.CnNow,
                                     IsArchived = "False"
                                 };
                                 LogsDbContext.Insert(httpResponseLog);
@@ -1800,7 +1801,7 @@ namespace WCS_Services
                 try
                 {
                     string logFilePath = Path.Combine(logPath, "GetPalnoApply_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
+                    string logMessage = $"[{DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
                     // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
                     // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
                     WCS_Helper.LogHelper.Api(logFilePath, logMessage);
@@ -1835,7 +1836,7 @@ namespace WCS_Services
                         Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(httpRequestLog);
@@ -1886,7 +1887,7 @@ namespace WCS_Services
                                     Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                                     UserId = "System",
                                     IpAddress = "System",
-                                    CreateTime = DateTime.UtcNow,
+                                    CreateTime = DateTimeHelper.CnNow,
                                     IsArchived = "False"
                                 };
                                 LogsDbContext.Insert(httpResponseLog);
@@ -2007,7 +2008,7 @@ namespace WCS_Services
                         Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{strJson}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(httpRequestLog);
@@ -2053,7 +2054,7 @@ namespace WCS_Services
                                     Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                                     UserId = "System",
                                     IpAddress = "System",
-                                    CreateTime = DateTime.UtcNow,
+                                    CreateTime = DateTimeHelper.CnNow,
                                     IsArchived = "False"
                                 };
                                 LogsDbContext.Insert(httpResponseLog);
@@ -2115,7 +2116,7 @@ namespace WCS_Services
                     }
 
                     string logFilePath = Path.Combine(logPath, $"{operation}_log.txt");
-                    string logMessage = $"[{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
+                    string logMessage = $"[{DateTimeHelper.CnNow:yyyy-MM-dd HH:mm:ss}] {(isError ? "错误" : "信息")}: {message}{Environment.NewLine}";
 
                     // nan_T 2026-09-09：不再写 *_log.txt，API 日志统一落 logs 表（来源=API/接口日志）；
                     // 用完全限定名避免被本类内部嵌套的同名 LogHelper 类遮蔽
@@ -2157,7 +2158,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -2196,7 +2197,7 @@ namespace WCS_Services
                     Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpResponseLog);
@@ -2219,7 +2220,7 @@ namespace WCS_Services
                     Details = $"异常信息: {webEx.Message}\n堆栈跟踪: {webEx.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -2244,7 +2245,7 @@ namespace WCS_Services
                     Details = $"HTTP状态码: {(int)httpResponse.StatusCode}\n错误响应内容: {errorContent}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorResponseLog);
@@ -2270,7 +2271,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -2303,7 +2304,7 @@ namespace WCS_Services
                 Details = $"请求参数: {JsonConvert.SerializeObject(task)}",
                 UserId = "System",
                 IpAddress = "System",
-                CreateTime = DateTime.UtcNow,
+                CreateTime = DateTimeHelper.CnNow,
                 IsArchived = "False"
             };
             LogsDbContext.Insert(httpRequestLog);
@@ -2350,7 +2351,7 @@ namespace WCS_Services
                     Details = "传入的task参数为null",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -2393,7 +2394,7 @@ namespace WCS_Services
                             Details = $"请求URL: {PostUrl}, 请求参数: {jsonData}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(responseErrorLog);
@@ -2419,7 +2420,7 @@ namespace WCS_Services
                             Details = $"请求URL: {PostUrl}, 状态码: {(int)response.StatusCode}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(contentErrorLog);
@@ -2446,7 +2447,7 @@ namespace WCS_Services
                         Details = $"请求URL: {PostUrl}, 状态码: {(int)response.StatusCode}, 完整响应内容: {responseJson}",
                         UserId = "System",
                         IpAddress = "System",
-                        CreateTime = DateTime.UtcNow,
+                        CreateTime = DateTimeHelper.CnNow,
                         IsArchived = "False"
                     };
                     LogsDbContext.Insert(httpResponseLog);
@@ -2473,7 +2474,7 @@ namespace WCS_Services
                                     Details = $"请求URL: {PostUrl}, 响应内容: {responseJson}",
                                     UserId = "System",
                                     IpAddress = "System",
-                                    CreateTime = DateTime.UtcNow,
+                                    CreateTime = DateTimeHelper.CnNow,
                                     IsArchived = "False"
                                 };
                                 LogsDbContext.Insert(deserializeErrorLog);
@@ -2532,7 +2533,7 @@ namespace WCS_Services
                                 Details = $"请求URL: {PostUrl}, 异常信息: {jsonEx.Message}, 响应内容: {responseJson}",
                                 UserId = "System",
                                 IpAddress = "System",
-                                CreateTime = DateTime.UtcNow,
+                                CreateTime = DateTimeHelper.CnNow,
                                 IsArchived = "False"
                             };
                             LogsDbContext.Insert(jsonErrorLog);
@@ -2561,7 +2562,7 @@ namespace WCS_Services
                             Details = $"请求URL: {PostUrl}, 状态码: {(int)response.StatusCode}, 错误响应内容: {responseJson}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpErrorLog);
@@ -2607,7 +2608,7 @@ namespace WCS_Services
                     Details = $"请求URL: {PostUrl}, 异常信息: {ex.Message}, 堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(exceptionLog);
@@ -2702,7 +2703,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -2744,7 +2745,7 @@ namespace WCS_Services
                             Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpResponseLog);
@@ -2770,7 +2771,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -2795,7 +2796,7 @@ namespace WCS_Services
                             Details = $"HTTP状态码: {(int)errorResponse.StatusCode}\n错误响应内容: {errorContent}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(errorResponseLog);
@@ -2830,7 +2831,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -2869,7 +2870,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -2911,7 +2912,7 @@ namespace WCS_Services
                             Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpResponseLog);
@@ -2937,7 +2938,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -2962,7 +2963,7 @@ namespace WCS_Services
                             Details = $"HTTP状态码: {(int)errorResponse.StatusCode}\n错误响应内容: {errorContent}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(errorResponseLog);
@@ -2997,7 +2998,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -3036,7 +3037,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -3078,7 +3079,7 @@ namespace WCS_Services
                             Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpResponseLog);
@@ -3104,7 +3105,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -3129,7 +3130,7 @@ namespace WCS_Services
                             Details = $"HTTP状态码: {(int)errorResponse.StatusCode}\n错误响应内容: {errorContent}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(errorResponseLog);
@@ -3164,7 +3165,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -3200,7 +3201,7 @@ namespace WCS_Services
                     Details = $"请求路径: {serviceAddress}\n完整请求参数JSON:\n{requestJson}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(httpRequestLog);
@@ -3242,7 +3243,7 @@ namespace WCS_Services
                             Details = $"响应状态码: {(int)response.StatusCode}\n完整响应内容JSON:\n{retString}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(httpResponseLog);
@@ -3268,7 +3269,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);
@@ -3293,7 +3294,7 @@ namespace WCS_Services
                             Details = $"HTTP状态码: {(int)errorResponse.StatusCode}\n错误响应内容: {errorContent}",
                             UserId = "System",
                             IpAddress = "System",
-                            CreateTime = DateTime.UtcNow,
+                            CreateTime = DateTimeHelper.CnNow,
                             IsArchived = "False"
                         };
                         LogsDbContext.Insert(errorResponseLog);
@@ -3328,7 +3329,7 @@ namespace WCS_Services
                     Details = $"异常信息: {ex.Message}\n堆栈跟踪: {ex.StackTrace}",
                     UserId = "System",
                     IpAddress = "System",
-                    CreateTime = DateTime.UtcNow,
+                    CreateTime = DateTimeHelper.CnNow,
                     IsArchived = "False"
                 };
                 LogsDbContext.Insert(errorLog);

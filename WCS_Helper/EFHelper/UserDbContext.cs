@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using WCS_Models.LoginViewModel;
 using WCS_Helper; // nan_T 2026-09-09：引入 PasswordHasher 密码哈希工具
+using WCS_Common.Helper;
 
 namespace WCS_Helper.Mapper
 {
@@ -171,7 +172,7 @@ namespace WCS_Helper.Mapper
         /// </summary>
         public static async Task<int> InsertUserAsync(LoginSqlModel user)
         {
-            user.LastLoginTime = DateTime.UtcNow;
+            user.LastLoginTime = DateTimeHelper.CnNow;
 
             // 根据 UserRole 设置 RoleId（如果业务需要）
             // nan_T 2026-09-09：修复角色映射不一致。接口层校验/写入的 UserRole 是 "0"/"1"/"2"，
@@ -435,7 +436,7 @@ namespace WCS_Helper.Mapper
                 if (user != null && passwordOk && activeOk)
                 {
                     // 更新最后登录时间
-                    user.LastLoginTime = DateTime.UtcNow;
+                    user.LastLoginTime = DateTimeHelper.CnNow;
                     await context.SaveChangesAsync();
 
                     return user;

@@ -11,6 +11,7 @@ using WCS_Services;
 using WCS_IServices;
 using WCS_Api.Filters; // nan_T 2026-09-09：全局异常过滤器
 using WCS_Api.Extensions; // nan_T 2026-09-09：服务程序集自动注册扩展
+using WCS_Common.Helper;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -248,12 +249,12 @@ else
 // 请求监控日志中间件
 app.Use(async (context, next) =>
 {
-    var startTime = DateTime.UtcNow;
+    var startTime = DateTimeHelper.CnNow;
     Console.WriteLine($"[{startTime:HH:mm:ss}] {context.Request.Method} {context.Request.Path}");
 
     await next();
 
-    var endTime = DateTime.UtcNow;
+    var endTime = DateTimeHelper.CnNow;
     var duration = (endTime - startTime).TotalMilliseconds;
     Console.WriteLine($"[{endTime:HH:mm:ss}] {context.Request.Method} {context.Request.Path} - {context.Response.StatusCode} ({duration}ms)");
 });
@@ -328,7 +329,7 @@ app.MapGet("/health", () =>
         Application = assembly.GetName().Name,
         Version = assembly.GetName().Version?.ToString(),
         Environment = app.Environment.EnvironmentName,
-        Timestamp = DateTime.UtcNow,
+        Timestamp = DateTimeHelper.CnNow,
         Status = "Healthy",
         MachineName = Environment.MachineName,
         Uptime = Environment.TickCount

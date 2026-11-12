@@ -119,7 +119,7 @@ namespace WCS_Services
                 {
                     if (taskQueryDto.exceptionType == "超时任务")
                     {
-                        var cutoffTime = DateTime.UtcNow.AddMinutes(-30);
+                        var cutoffTime = DateTimeHelper.CnNow.AddMinutes(-30);
                         var completedStatuses = new[] { "到达目的地", "拆膜完成", "异常处理完成" };
                         query = query.Where(t => !completedStatuses.Contains(t.Statu)
                                                  && t.CreationTime < cutoffTime);

@@ -290,6 +290,73 @@ public static class LogsDbContext
             return null;
         }
     }
+
+    #region nan_T 2026-11-12：日志超期备份+清理
+
+    /// <summary>
+    /// 将 createtime 早于 cutoff 的日志导出为 CSV 文件，返回导出条数。
+    /// 导出成功后才允许调用 DeleteLogsBeforeAsync 物理删除，保证先备份后删除。
+    /// </summary>
+    public static int ExportLogsBefore(DateTime cutoff, string backupFile)
+    {
+        try
+        {
+            using var context = CreateDbContext();
+            var logs = context.Logs
+                .Where(l => l.CreateTime < cutoff)
+                .OrderBy(l => l.Id)
+                .ToList();
+
+            if (logs.Count == 0) return 0;
+
+            var dir = Path.GetDirectoryName(backupFile);
+            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+
+            using var sw = new StreamWriter(backupFile, false, System.Text.Encoding.UTF8);
+            sw.WriteLine("id,usertype,logtype,level,message,module,operation,details,userid,ipaddress,createtime,isarchived");
+            foreach (var l in logs)
+            {
+                sw.WriteLine(string.Join(",",
+                    l.Id,
+                    Csv(l.UserType), Csv(l.LogType), Csv(l.Level), Csv(l.Message),
+                    Csv(l.Module), Csv(l.Operation), Csv(l.Details), Csv(l.UserId),
+                    Csv(l.IpAddress),
+                    l.CreateTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    Csv(l.IsArchived)));
+            }
+            return logs.Count;
+        }
+        catch (Exception ex)
+        {
+            SaveErrToText("导出超期日志失败", ex.Message);
+            return -1;
+        }
+    }
+
+    /// <summary>物理删除 createtime 早于 cutoff 的日志，返回删除条数。</summary>
+    public static int DeleteLogsBefore(DateTime cutoff)
+    {
+        try
+        {
+            using var context = CreateDbContext();
+            return context.Database.ExecuteSqlRaw(
+                "DELETE FROM logs WHERE createtime < {0}", cutoff);
+        }
+        catch (Exception ex)
+        {
+            SaveErrToText("删除超期日志失败", ex.Message);
+            return 0;
+        }
+    }
+
+    private static string Csv(string v)
+    {
+        if (string.IsNullOrEmpty(v)) return "\"\"";
+        var s = v.Replace("\"", "\"\"");
+        return $"\"{s}\"";
+    }
+    #endregion
     #endregion
 }
 

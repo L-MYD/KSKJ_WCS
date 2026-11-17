@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using WCS_Helper; // nan_T 2026-09-09：日志统一走 LogHelper（落库），不再写 txt
 using WCS_Helper.Mapper;
+using WCS_Models;
 using WCS_Models.SqlModel;
 using WCS_Models.TESModel;
 using WCS_Models.WCSModel.LogModel;
@@ -195,7 +196,7 @@ namespace WCS_Services
                     {
                         TesTaskID = trm.data.taskID.ToString(),
                         WmsTaskID = model.WmsId,
-                        // nan_T 2026-10-30：按协议任务类型记录（01入成品库/02入灭菌缓存/03灭菌/04入解析区/05PS/06AGV）
+                        // nan_T 2026-11-16：按任务类型记录（01入库/02出库/03回库/04紧急出库）
                         WmsTaskType = GetTaskTypeName(model.TaskType),
                         CurrentPosition = fromlococation,
                         Statu = "待执行",
@@ -270,29 +271,136 @@ namespace WCS_Services
         }
 
         /// <summary>
-        /// 协议任务类型名称
-        /// 01：入成品库任务 02：入灭菌缓存任务 03：灭菌任务 04：入解析区任务 05：无任务组（PS 任务）06：无任务组（AGV 任务）
+        /// nan_T 2026-11-16：WMS 站点释放（应急出库特殊流程）WMS-->WCS-->TES。
+        /// 流程：WMS 将应急出库任务下发到拣选口的应急出库口 → 人工搬走货物 →
+        ///       WMS 调用本接口 → WCS 映射 TES 站点编码并调用 TES 站点释放接口 → 清除本地站点占用状态。
+        /// </summary>
+        public WcsReturn releaseStation(StationReleaseModel model)
+        {
+            try
+            {
+                if (model == null || string.IsNullOrEmpty(model.StationCode))
+                {
+                    return new WcsReturn { msgType = "F", msgText = "缺少 StationCode 字段", WmsId = model?.WmsId };
+                }
+
+                string wmsStation = model.StationCode.Trim();
+
+                // 1. WMS 站点名 → TES 站点编码（优先出库口映射，其次站点状态表，最后按原始编码透传）
+                string tesStationCode = null;
+
+                StationNameModel stationName = StationNameModelCollection.DataList
+                    .FirstOrDefault(x => x.WmsStationName == wmsStation);
+                if (stationName != null && !string.IsNullOrEmpty(stationName.TesStationName))
+                {
+                    tesStationCode = stationName.TesStationName;
+                }
+                else
+                {
+                    Stationstatus stationstatus = StationstatusCollection.DataList
+                        .FirstOrDefault(x => x.WmsStationName == wmsStation || x.StationCode == wmsStation);
+                    if (stationstatus != null && !string.IsNullOrEmpty(stationstatus.StationCode))
+                    {
+                        tesStationCode = stationstatus.StationCode;
+                    }
+                }
+
+                // 与任务下发保持一致：字典缺失时按 WMS 原始编码透传，避免本地字典未维护导致无法释放
+                if (string.IsNullOrEmpty(tesStationCode))
+                {
+                    tesStationCode = wmsStation;
+                }
+
+                // 2. 调用 TES 站点释放接口
+                string tesIp = ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "TES")?.IP;
+                if (string.IsNullOrEmpty(tesIp))
+                {
+                    return new WcsReturn { msgType = "F", msgText = "TES接口未配置", WmsId = model.WmsId };
+                }
+
+                ToWcsPublicReturnValueL tesResult = ToTesApiService.releaseStation(tesStationCode);
+                if (tesResult == null || tesResult.ReturnCode != 0)
+                {
+                    // nan_T 2026-11-16：优先用业务提示；本地兜底提示为“失败”时改用 ReturnMsg（网络异常等），便于现场定位
+                    string userMsg = tesResult?.ReturnUserMsgg?.ToString();
+                    string retMsg = tesResult?.ReturnMsg;
+                    string msg = (!string.IsNullOrEmpty(userMsg) && userMsg != "失败")
+                        ? userMsg
+                        : (!string.IsNullOrEmpty(retMsg) ? retMsg : "TES站点释放失败");
+
+                    LogsDbContext.Insert(new LogModel
+                    {
+                        UserType = "api",
+                        LogType = "Business Error",
+                        Level = "Error",
+                        Message = "应急出库站点释放失败",
+                        Module = "ToWmsApiService",
+                        Operation = "releaseStation",
+                        Details = $"WmsId: {model.WmsId}, WMS站点: {wmsStation}, TES站点: {tesStationCode}, 原因: {model.Reason}, 失败信息: {msg}",
+                        UserId = "System",
+                        IpAddress = "System",
+                        CreateTime = DateTimeHelper.CnNow,
+                        IsArchived = "False"
+                    });
+
+                    return new WcsReturn { msgType = "F", msgText = $"TES站点释放失败: {msg}", WmsId = model.WmsId };
+                }
+
+                // 3. 清除本地站点占用状态（应急出库口恢复为出库方向）
+                Stationstatus localStation = StationstatusCollection.DataList
+                    .FirstOrDefault(x => x.StationCode == tesStationCode || x.WmsStationName == wmsStation);
+                if (localStation != null && localStation.Status == "占用")
+                {
+                    localStation.Status = "出库";
+                    TaskDbContext.UpdateStationstatusAsync(localStation);
+                }
+
+                LogsDbContext.Insert(new LogModel
+                {
+                    UserType = "api",
+                    LogType = "Business Success",
+                    Level = "Info",
+                    Message = "应急出库站点释放成功",
+                    Module = "ToWmsApiService",
+                    Operation = "releaseStation",
+                    Details = $"WmsId: {model.WmsId}, WMS站点: {wmsStation}, TES站点: {tesStationCode}, 原因: {model.Reason}",
+                    UserId = "System",
+                    IpAddress = "System",
+                    CreateTime = DateTimeHelper.CnNow,
+                    IsArchived = "False"
+                });
+
+                return new WcsReturn { msgType = "S", msgText = "成功", WmsId = model.WmsId };
+            }
+            catch (Exception ex)
+            {
+                return new WcsReturn { msgType = "E", msgText = ex.Message, WmsId = model?.WmsId };
+            }
+        }
+
+        /// <summary>
+        /// 任务类型名称
+        /// nan_T 2026-11-16：本项目任务流程只有四种：01 入库任务、02 出库任务、03 回库任务、04 紧急出库任务
         /// </summary>
         private static string GetTaskTypeName(string taskType)
         {
             switch (taskType)
             {
-                case "01": return "入成品库任务";
-                case "02": return "入灭菌缓存任务";
-                case "03": return "灭菌任务";
-                case "04": return "入解析区任务";
-                case "05": return "无任务组（PS任务）";
-                case "06": return "无任务组（AGV任务）";
+                case "01": return "入库任务";
+                case "02": return "出库任务";
+                case "03": return "回库任务";
+                case "04": return "紧急出库任务";
                 default: return taskType;
             }
         }
 
         /// <summary>
-        /// 字典未命中时按任务类型判断是否为出库类任务（03 灭菌、05 PS、06 AGV 为站台式任务）
+        /// 字典未命中时按任务类型判断是否为出库类任务
+        /// nan_T 2026-11-16：02 出库、04 紧急出库为出库方向；01 入库、03 回库为入库方向
         /// </summary>
         private static bool IsOutTaskType(string taskType)
         {
-            return taskType == "03" || taskType == "05" || taskType == "06";
+            return taskType == "02" || taskType == "04";
         }
     }
 }

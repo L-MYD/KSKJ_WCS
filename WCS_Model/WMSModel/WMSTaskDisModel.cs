@@ -42,7 +42,7 @@ namespace WCS_Models.WMSModel
         public string Num { get; set; }
 
         /// <summary>
-        /// 任务类型 01入成品库 02入灭菌缓存 03灭菌 04入解析区 05无任务组(PS) 06无任务组(AGV)
+        /// 任务类型 01入库 02出库 03回库 04紧急出库
         /// </summary>
         public string TaskType { get; set; }
     }
@@ -88,7 +88,7 @@ namespace WCS_Models.WMSModel
         public string Num { get; set; }
 
         /// <summary>
-        /// 任务类型 01入成品库 02入灭菌缓存 03灭菌 04入解析区 05无任务组(PS) 06无任务组(AGV)
+        /// 任务类型 01入库 02出库 03回库 04紧急出库
         /// </summary>
         public string TaskType { get; set; }
     }

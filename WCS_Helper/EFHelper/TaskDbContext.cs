@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
 using System.Threading.Tasks;
 using WCS_Models.LoginViewModel;
 using WCS_Models.PLCModel;
@@ -947,6 +948,73 @@ namespace WCS_Helper.Mapper
                 page = queryParams.page,
                 pageSize = queryParams.pageSize
             };
+        }
+        #endregion
+
+        #region nan_T 2026-11-12：已完成任务超期备份+清理
+
+        /// <summary>
+        /// 将 completion_time 早于 cutoff 的已完成任务导出为 CSV，返回导出条数。
+        /// 仅导出有 completion_time 的任务（未完成任务不清理）。
+        /// </summary>
+        public static int ExportCompletedTasksBefore(DateTime cutoff, string backupFile)
+        {
+            try
+            {
+                using var context = CreateDbContext();
+                var tasks = context.TescorrespondsWms
+                    .Where(t => t.CompletionTime != null && t.CompletionTime < cutoff)
+                    .OrderBy(t => t.id)
+                    .ToList();
+
+                if (tasks.Count == 0) return 0;
+
+                var dir = Path.GetDirectoryName(backupFile);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                    Directory.CreateDirectory(dir);
+
+                using var sw = new StreamWriter(backupFile, false, System.Text.Encoding.UTF8);
+                sw.WriteLine("id,wcs_id,tes_task_id,wms_task_id,wms_task_type,current_position,statu,creation_time,completion_time,target_location,pod_id");
+                foreach (var t in tasks)
+                {
+                    sw.WriteLine(string.Join(",",
+                        t.id,
+                        Csv(t.WcsId), Csv(t.TesTaskID), Csv(t.WmsTaskID), Csv(t.WmsTaskType),
+                        Csv(t.CurrentPosition), Csv(t.Statu),
+                        t.CreationTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
+                        t.CompletionTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "",
+                        Csv(t.TargetLocation), Csv(t.Podid)));
+                }
+                return tasks.Count;
+            }
+            catch (Exception ex)
+            {
+                SaveErrToText("导出超期已完成任务失败", ex.Message);
+                return -1;
+            }
+        }
+
+        /// <summary>物理删除 completion_time 早于 cutoff 的已完成任务，返回删除条数。</summary>
+        public static int DeleteCompletedTasksBefore(DateTime cutoff)
+        {
+            try
+            {
+                using var context = CreateDbContext();
+                return context.Database.ExecuteSqlRaw(
+                    "DELETE FROM tescorresponds_wms WHERE completion_time IS NOT NULL AND completion_time < {0}", cutoff);
+            }
+            catch (Exception ex)
+            {
+                SaveErrToText("删除超期已完成任务失败", ex.Message);
+                return 0;
+            }
+        }
+
+        private static string Csv(string v)
+        {
+            if (string.IsNullOrEmpty(v)) return "\"\"";
+            var s = v.Replace("\"", "\"\"");
+            return $"\"{s}\"";
         }
         #endregion
 

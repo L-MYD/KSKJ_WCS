@@ -142,5 +142,60 @@ namespace WCS_Api.Controllers
                 }, 500);
             }
         }
+
+        /// <summary>
+        /// 站点释放（应急出库特殊流程）：WMS-->WCS-->TES
+        /// 请求地址：http://XXXXXXXXX/api/WCS/StationRelease
+        /// 流程：应急出库任务下发到拣选口的应急出库口 → 人工搬走货物 →
+        ///       WMS 调用本接口 → WCS 调用 TES 站点释放接口并清除本地站点占用状态。
+        /// </summary>
+        /// <param name="model">站点释放请求（StationCode 必填）</param>
+        [HttpPost("StationRelease")]
+        public IActionResult StationRelease([FromBody] StationReleaseModel model)
+        {
+            try
+            {
+                if (model == null)
+                {
+                    return WmsJson(new WcsReturn
+                    {
+                        msgType = "F",
+                        msgText = "请求体不能为空",
+                        WmsId = null
+                    }, 400);
+                }
+
+                if (string.IsNullOrEmpty(model.StationCode))
+                {
+                    return WmsJson(new WcsReturn
+                    {
+                        msgType = "F",
+                        msgText = "缺少 StationCode 字段",
+                        WmsId = model.WmsId
+                    }, 400);
+                }
+
+                var result = toWmsApiService.releaseStation(model);
+                return WmsJson(result, result.msgType == "E" ? 500 : 200);
+            }
+            catch (JsonException jsonEx)
+            {
+                return WmsJson(new WcsReturn
+                {
+                    msgType = "F",
+                    msgText = $"JSON解析错误: {jsonEx.Message}",
+                    WmsId = null
+                }, 400);
+            }
+            catch (Exception ex)
+            {
+                return WmsJson(new WcsReturn
+                {
+                    msgType = "E",
+                    msgText = $"系统错误: {ex.Message}",
+                    WmsId = model?.WmsId
+                }, 500);
+            }
+        }
     }
 }

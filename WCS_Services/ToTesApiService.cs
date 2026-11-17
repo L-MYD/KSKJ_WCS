@@ -37,7 +37,7 @@ namespace WCS_Services
         string wmsapiip = (ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "WMS")?.IP ?? "").TrimEnd('/');
         // nan_T 2026-11-09：TES 接口基址。apiserver 表无 TES 记录时取空串，避免静态字段 NRE 导致整个类型初始化失败；
         // 各调用点在 tesapiip 为空时返回“TES接口未配置”，不再抛 TypeInitializationException。
-        static string tesapiip = ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "TES")?.IP ?? "";
+        static string tesapiip = (ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "TES")?.IP ?? "").TrimEnd('/');
         /// <summary>
         /// 从 ErrorReason 中提取托盘号（使用正则表达式，支持多种括号格式）
         /// </summary>
@@ -137,7 +137,7 @@ namespace WCS_Services
                     };
                 }
 
-                serviceAddress = tesapiip + "tes/apiv2/newMovePodTask";
+                serviceAddress = tesapiip + "/tes/apiv2/newMovePodTask";
 
                 // 记录HTTP请求
                 TesNewMovePodTaskModel taskmodel = new TesNewMovePodTaskModel();
@@ -2139,7 +2139,7 @@ namespace WCS_Services
         {
             try
             {
-                string serviceAddress = tesapiip + "tes/apiv2/setStationInteractiveStatus";
+                string serviceAddress = tesapiip + "/tes/apiv2/setStationInteractiveStatus";
 
                 // 记录HTTP请求
                 SetStationInteractiveStatus taskmodel = new SetStationInteractiveStatus();
@@ -2361,7 +2361,7 @@ namespace WCS_Services
 
             WriteLog($"任务对象: {JsonConvert.SerializeObject(task, Formatting.Indented)}");
 
-            string PostUrl = tesapiip + "tes/apiv2/getPodList";
+            string PostUrl = tesapiip + "/tes/apiv2/getPodList";
             WriteLog($"请求URL: {PostUrl}");
 
             try

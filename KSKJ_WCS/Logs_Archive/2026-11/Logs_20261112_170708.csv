@@ -1,0 +1,2 @@
+﻿id,usertype,logtype,level,message,module,operation,details,userid,ipaddress,createtime,isarchived
+58,"test","test","Info","cleanup test old log","Test","Test","old data for cleanup test","System","127.0.0.1",2026-10-12 17:06:54,"False"

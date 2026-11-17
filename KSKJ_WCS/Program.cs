@@ -198,6 +198,10 @@ builder.Services.AddWcsServices();
 // nan_T 2026-09-09：注册失败消息自动重发后台服务（定时扫描 retry_messages 表，重发失败的 API 请求 / PLC 指令）
 builder.Services.AddHostedService<WCS_Api.Services.RetryBackgroundService>();
 
+// nan_T 2026-11-12：注册日志/任务表超期自动备份清理后台服务（参考 GZNQ_WCS，每天 02:00 执行，启动时也执行一次）
+builder.Services.Configure<WCS_Api.Services.LogCleanupOptions>(builder.Configuration.GetSection("LogCleanup"));
+builder.Services.AddHostedService<WCS_Api.Services.LogCleanupBackgroundService>();
+
 // 在 Program.cs 中注册
 builder.Services.AddHttpContextAccessor();
 

@@ -197,5 +197,40 @@ namespace WCS_Api.Controllers
                 }, 500);
             }
         }
+
+        /// <summary>
+        /// 查询站点流向：WMS-->WCS
+        /// 请求地址：http://XXXXXXXXX/api/WCS/GetStationFlow
+        /// 请求体：{ "StationCodes": ["A","B"] }，为空时返回全部站点。
+        /// 返回每个站点的 TES 站点编码、WMS 站点名称、TES 出库口/入库检查点及当前流向（入库/出库/占用）。
+        /// </summary>
+        /// <param name="model">站点编码集合（可空）</param>
+        [HttpPost("GetStationFlow")]
+        public IActionResult GetStationFlow([FromBody] StationFlowQueryModel model)
+        {
+            try
+            {
+                var result = toWmsApiService.getStationFlow(model);
+                return WmsJson(result, result.msgType == "E" ? 500 : 200);
+            }
+            catch (JsonException jsonEx)
+            {
+                return WmsJson(new StationFlowReturn
+                {
+                    msgType = "F",
+                    msgText = $"JSON解析错误: {jsonEx.Message}",
+                    data = new List<StationFlowModel>()
+                }, 400);
+            }
+            catch (Exception ex)
+            {
+                return WmsJson(new StationFlowReturn
+                {
+                    msgType = "E",
+                    msgText = $"系统错误: {ex.Message}",
+                    data = new List<StationFlowModel>()
+                }, 500);
+            }
+        }
     }
 }

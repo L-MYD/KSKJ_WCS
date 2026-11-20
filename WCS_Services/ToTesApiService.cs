@@ -34,10 +34,32 @@ namespace WCS_Services
     {
         // nan_T 2026-09-14：WMS 回调基址。数据库可能存尾部带斜杠（如 http://…:5000/），
         // 统一 TrimEnd('/')，避免拼接 "/matrix/sendMsg/…" 时产生双斜杠导致 404
-        string wmsapiip = (ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "WMS")?.IP ?? "").TrimEnd('/');
+        // nan_T 2026-11-20：Name 去空格并忽略大小写（避免表里写成 "Wms"、"WMS " 时取不到地址导致 Invalid URI）
+        string wmsapiip = (ApiServerCollection.DataList
+            .FirstOrDefault(x => string.Equals((x.Name ?? "").Trim(), "WMS", StringComparison.OrdinalIgnoreCase))?.IP ?? "")
+            .Trim().TrimEnd('/');
         // nan_T 2026-11-09：TES 接口基址。apiserver 表无 TES 记录时取空串，避免静态字段 NRE 导致整个类型初始化失败；
         // 各调用点在 tesapiip 为空时返回“TES接口未配置”，不再抛 TypeInitializationException。
         static string tesapiip = (ApiServerCollection.DataList.FirstOrDefault(x => x.Name == "TES")?.IP ?? "").TrimEnd('/');
+
+        /// <summary>
+        /// nan_T 2026-11-20：WMS 接口基址是否可用。
+        /// apiserver 表缺少 Name=WMS 记录、IP 为空或不是 http/https 绝对地址时返回 false，
+        /// 避免拼出 "/api/WMS/xxx" 这类相对地址、在 WebRequest.Create 处抛 Invalid URI 直接冒到接口层。
+        /// </summary>
+        bool IsWmsBaseUrlValid()
+        {
+            return Uri.TryCreate(wmsapiip, UriKind.Absolute, out Uri uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+        }
+
+        /// <summary>
+        /// nan_T 2026-11-20：WMS 接口地址不可用时的统一提示
+        /// </summary>
+        string WmsBaseUrlError()
+        {
+            return $"WMS接口地址未配置或格式非法：请检查 apiserver 表中 Name=WMS 的 IP（应为 http://IP:端口），当前值：\"{wmsapiip}\"";
+        }
         /// <summary>
         /// 从 ErrorReason 中提取托盘号（使用正则表达式，支持多种括号格式）
         /// </summary>
@@ -1657,6 +1679,28 @@ namespace WCS_Services
             int retryDelayMs = 10000; // 重试延迟时间（毫秒）
             int retryCount = 0;
 
+            // nan_T 2026-11-20：WMS 回调地址未配置时直接返回失败，避免 WebRequest.Create 抛 Invalid URI
+            if (!IsWmsBaseUrlValid())
+            {
+                string configError = WmsBaseUrlError();
+                WriteLog(configError, true);
+                LogsDbContext.Insert(new LogModel
+                {
+                    UserType = "http",
+                    LogType = "Business Error",
+                    Level = "Error",
+                    Message = "WMS接口地址未配置，无法回调任务状态",
+                    Module = "ToTesApiService",
+                    Operation = "GetWmsreceiveTask",
+                    Details = configError,
+                    UserId = "System",
+                    IpAddress = "System",
+                    CreateTime = DateTimeHelper.CnNow,
+                    IsArchived = "False"
+                });
+                return new WCSTaskFinishReturn { msgType = "F", msgText = configError };
+            }
+
             while (retryCount <= maxRetries)
             {
                 try
@@ -1817,6 +1861,28 @@ namespace WCS_Services
             int maxRetries = 3; // 最大重试次数
             int retryDelayMs = 10000; // 重试延迟时间（毫秒）
             int retryCount = 0;
+
+            // nan_T 2026-11-20：WMS 地址未配置时直接返回失败，避免 WebRequest.Create 抛 Invalid URI
+            if (!IsWmsBaseUrlValid())
+            {
+                string configError = WmsBaseUrlError();
+                WriteLog(configError, true);
+                LogsDbContext.Insert(new LogModel
+                {
+                    UserType = "http",
+                    LogType = "Business Error",
+                    Level = "Error",
+                    Message = "WMS接口地址未配置，无法申请容器终点",
+                    Module = "ToTesApiService",
+                    Operation = "GetPalnoApply",
+                    Details = configError,
+                    UserId = "System",
+                    IpAddress = "System",
+                    CreateTime = DateTimeHelper.CnNow,
+                    IsArchived = "False"
+                });
+                return new PalnoApplyReturn { msgType = "F", msgText = configError, WcsId = model?.WcsId };
+            }
 
             while (retryCount <= maxRetries)
             {
@@ -1985,6 +2051,28 @@ namespace WCS_Services
                 {
                     Console.WriteLine($"写入日志失败: {logEx.Message}");
                 }
+            }
+
+            // nan_T 2026-11-20：WMS 地址未配置时直接返回失败，避免 WebRequest.Create 抛 Invalid URI
+            if (!IsWmsBaseUrlValid())
+            {
+                string configError = WmsBaseUrlError();
+                WriteLog(configError, true);
+                LogsDbContext.Insert(new LogModel
+                {
+                    UserType = "http",
+                    LogType = "Business Error",
+                    Level = "Error",
+                    Message = $"WMS接口地址未配置，无法调用 - {message}",
+                    Module = "ToTesApiService",
+                    Operation = operation,
+                    Details = configError,
+                    UserId = "System",
+                    IpAddress = "System",
+                    CreateTime = DateTimeHelper.CnNow,
+                    IsArchived = "False"
+                });
+                return new WmsSimpleReturn { msgType = "F", msgText = configError };
             }
 
             string serviceAddress = wmsapiip.TrimEnd('/') + "/" + path.TrimStart('/');

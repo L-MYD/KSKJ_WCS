@@ -379,6 +379,96 @@ namespace WCS_Services
         }
 
         /// <summary>
+        /// nan_T 2026-11-18：WMS 查询站点流向（WMS-->WCS）。
+        /// 数据来源为本地 stationstatus（站点流向）与 stationname（TES 站点映射），不依赖 TES 实时可用。
+        /// 入参 StationCodes 为空时返回全部站点。
+        /// </summary>
+        public StationFlowReturn getStationFlow(StationFlowQueryModel model)
+        {
+            try
+            {
+                // 1. 读取站点流向与站点映射字典
+                var stationStatusList = StationstatusCollection.DataList ?? new List<Stationstatus>();
+                var stationNameList = StationNameModelCollection.DataList ?? new List<StationNameModel>();
+
+                // 2. 按入参过滤（WMS 站点名或 TES 站点编码均可），为空取全部
+                var queryCodes = model?.StationCodes?
+                    .Where(x => !string.IsNullOrWhiteSpace(x))
+                    .Select(x => x.Trim())
+                    .ToList();
+
+                if (queryCodes != null && queryCodes.Count > 0)
+                {
+                    stationStatusList = stationStatusList
+                        .Where(x => queryCodes.Contains(x.StationCode) || queryCodes.Contains(x.WmsStationName))
+                        .ToList();
+                }
+
+                // 3. 组装返回：补全 TES 出库口映射
+                var data = stationStatusList.Select(x =>
+                {
+                    StationNameModel nameModel = stationNameList
+                        .FirstOrDefault(n => n.WmsStationName == x.WmsStationName);
+
+                    return new StationFlowModel
+                    {
+                        StationCode = x.StationCode,
+                        WmsStationName = x.WmsStationName,
+                        TesStationName = nameModel?.TesStationName,
+                        TesCheckName = string.IsNullOrEmpty(x.TesCheckName) ? nameModel?.TesCheckName : x.TesCheckName,
+                        Flow = x.Status
+                    };
+                }).ToList();
+
+                LogsDbContext.Insert(new LogModel
+                {
+                    UserType = "api",
+                    LogType = "Business Success",
+                    Level = "Info",
+                    Message = "WMS查询站点流向成功",
+                    Module = "ToWmsApiService",
+                    Operation = "getStationFlow",
+                    Details = $"查询条件: {(queryCodes != null && queryCodes.Count > 0 ? string.Join(",", queryCodes) : "全部")}, 返回条数: {data.Count}",
+                    UserId = "System",
+                    IpAddress = "System",
+                    CreateTime = DateTimeHelper.CnNow,
+                    IsArchived = "False"
+                });
+
+                return new StationFlowReturn
+                {
+                    msgType = "S",
+                    msgText = "成功",
+                    data = data
+                };
+            }
+            catch (Exception ex)
+            {
+                LogsDbContext.Insert(new LogModel
+                {
+                    UserType = "api",
+                    LogType = "Business Error",
+                    Level = "Error",
+                    Message = "WMS查询站点流向异常",
+                    Module = "ToWmsApiService",
+                    Operation = "getStationFlow",
+                    Details = $"查询条件: {JsonConvert.SerializeObject(model?.StationCodes)}, 异常信息: {ex.Message}",
+                    UserId = "System",
+                    IpAddress = "System",
+                    CreateTime = DateTimeHelper.CnNow,
+                    IsArchived = "False"
+                });
+
+                return new StationFlowReturn
+                {
+                    msgType = "E",
+                    msgText = ex.Message,
+                    data = new List<StationFlowModel>()
+                };
+            }
+        }
+
+        /// <summary>
         /// 任务类型名称
         /// nan_T 2026-11-16：本项目任务流程只有四种：01 入库任务、02 出库任务、03 回库任务、04 紧急出库任务
         /// </summary>

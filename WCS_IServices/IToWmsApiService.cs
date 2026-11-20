@@ -16,5 +16,11 @@ namespace WCS_IServices
         /// WCS 将 WMS 站点名映射为 TES 站点编码，调用 TES 站点释放接口，并清除本地站点占用状态。
         /// </summary>
         WcsReturn releaseStation(StationReleaseModel model);
+
+        /// <summary>
+        /// nan_T 2026-11-18：WMS 查询站点流向（入库 / 出库 / 占用）。
+        /// StationCodes 为空时返回全部站点。
+        /// </summary>
+        StationFlowReturn getStationFlow(StationFlowQueryModel model);
     }
 }
